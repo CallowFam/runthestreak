@@ -1,8 +1,4 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>RunTheStreak</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,600;1,700;1,800&family=Figtree:wght@400;500;600;700&display=swap">
 <style>
@@ -220,13 +216,32 @@ footer{color:var(--muted);font-size:.82rem}
 #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:90;background:var(--raised);border:1px solid var(--line);border-radius:10px;padding:10px 16px;font-weight:600;max-width:calc(100% - 32px)}
 .stack{display:flex;flex-direction:column;gap:14px;align-items:flex-start;max-width:600px}
 
+/* leaderboards */
+.avatar{width:44px;height:44px;border-radius:50%;background:var(--raised);border:2px solid var(--line);display:grid;place-items:center;font-family:var(--display);font-weight:600;font-size:1.2rem;overflow:hidden;flex:none;color:var(--sky);text-transform:uppercase}
+.avatar img{width:100%;height:100%;object-fit:cover;display:block}
+.avatar.big{width:84px;height:84px;font-size:2rem;cursor:pointer;padding:0}
+.me-card{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.me-card label{flex:1;min-width:200px;max-width:320px}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.invite{background:var(--surface);border:1px solid var(--neon);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.invite code{font-family:inherit;font-weight:600;overflow-wrap:anywhere;user-select:all;color:var(--neon)}
+ol.lb{list-style:none;margin:0;padding:0}
+ol.lb li{display:grid;grid-template-columns:2rem 44px minmax(0,1fr) auto;gap:12px;align-items:center;padding-block:12px;border-bottom:1px solid var(--line)}
+.lb .rank{font-family:var(--display);font-style:italic;font-weight:800;font-size:1.6rem;color:var(--muted)}
+.lb li:first-child .rank{color:var(--neon)}
+.lb .val{font-family:var(--display);font-style:italic;font-weight:800;font-size:1.9rem;color:var(--flame);font-variant-numeric:tabular-nums}
+.lb .val small{font-size:.9rem;font-style:normal;font-weight:600;color:var(--muted)}
+.lb li.you strong{color:var(--neon)}
+.lb li.ghost{color:var(--muted)}
+.lb li.ghost .avatar{border-style:dashed}
+
 @media (max-width:859px){
   body{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))}
   .app{display:block}
   .side{position:fixed;inset:auto 0 0 0;top:auto;z-index:50;background:var(--surface);border-top:1px solid var(--line);padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px))}
   .side .mark,.rate-mini{display:none}
   .links{flex-direction:row;gap:2px}
-  .links a{flex:1;text-align:center;padding:11px 1px;font-size:.74rem}
+  .links a{flex:1;text-align:center;padding:11px 0;font-size:.68rem}
   .only-phone{display:block;text-align:center}
   .home{grid-template-columns:minmax(0,1fr);gap:30px}
   .hero{min-height:min(66vh,560px);justify-content:center}
@@ -239,8 +254,6 @@ footer{color:var(--muted);font-size:.82rem}
 @media (prefers-reduced-motion:reduce){ .road .fill{transition:none} .ring.waiting{animation:none} }
 </style>
 
-</head>
-<body>
 <div class="app">
   <nav class="side" aria-label="Menu">
     <div class="mark">RunThe<b>Streak</b></div>
@@ -251,6 +264,7 @@ footer{color:var(--muted);font-size:.82rem}
       <a href="#missions" data-v="missions">Missions</a>
       <a href="#map" data-v="map">Map</a>
       <a href="#runs" data-v="runs">Runs</a>
+      <a href="#friends" data-v="friends">Friends</a>
       <a href="#account" data-v="account">Account</a>
     </div>
   </nav>
@@ -388,6 +402,66 @@ footer{color:var(--muted);font-size:.82rem}
       </section>
       <footer id="saveNote">Your runs and photos are saved in this browser on this device.</footer>
     </div>
+    <!-- FRIENDS -->
+    <div class="view" id="v-friends" hidden>
+      <div class="head"><h1>Leaderboards</h1><p class="sub">Race your friends and family. Make a leaderboard, send the invite link, and see who is on top.</p></div>
+      <div class="stack" id="lbOut">
+        <p id="lbOutMsg">Log in to make a leaderboard and invite your friends.</p>
+        <button class="btn on" id="lbLogin" type="button">Log in or create account</button>
+      </div>
+      <div class="view" id="lbIn" hidden>
+        <section aria-label="Your profile">
+          <h2>Your profile</h2>
+          <div class="me-card">
+            <button class="avatar big" id="meAvatar" type="button" aria-label="Change your profile photo"></button>
+            <label>Name your friends will see
+              <input id="meName" type="text" maxlength="20" placeholder="Your first name or nickname">
+            </label>
+            <input id="meFile" type="file" accept="image/*" hidden>
+          </div>
+          <p class="small">Tap the circle to add a photo. Only people on your leaderboards can see your name, photo and stats.</p>
+        </section>
+        <section aria-label="Your leaderboards">
+          <h2>Your leaderboards</h2>
+          <div class="chips" id="lbTabs"></div>
+          <div class="map-tools">
+            <button class="btn" id="lbNewBtn" type="button">New leaderboard</button>
+            <button class="btn" id="lbJoinBtn" type="button">Join with a code</button>
+          </div>
+          <form class="card" id="lbNewForm" hidden novalidate>
+            <label class="c4">Leaderboard name <input id="lbNewName" type="text" maxlength="30" placeholder="School friends, Family, Rugby team"></label>
+            <button class="primary" type="submit">Create</button>
+          </form>
+          <form class="card" id="lbJoinForm" hidden novalidate>
+            <label class="c4">Invite code <input id="lbJoinCode" type="text" maxlength="8" autocapitalize="characters" placeholder="8 letters and numbers"></label>
+            <button class="primary" type="submit">Join</button>
+          </form>
+          <div class="err" id="lbErr" hidden></div>
+        </section>
+        <section id="lbBoard" hidden aria-label="Leaderboard">
+          <div class="invite">
+            <strong id="lbInviteTitle">Invite people to this leaderboard</strong>
+            <code id="lbLink"></code>
+            <div class="map-tools">
+              <button class="btn on" id="lbShare" type="button">Share invite link</button>
+              <button class="btn" id="lbCopy" type="button">Copy link</button>
+              <span class="small">Code: <b id="lbCode"></b></span>
+            </div>
+          </div>
+          <div class="map-tools" role="group" aria-label="Rank by" id="lbMetrics">
+            <button class="btn on" type="button" data-m="streak">Streak</button>
+            <button class="btn" type="button" data-m="week">Km this week</button>
+            <button class="btn" type="button" data-m="rating">Rating</button>
+            <button class="btn" type="button" data-m="five">Fastest 5K</button>
+          </div>
+          <ol class="lb" id="lbList"></ol>
+          <div class="map-tools">
+            <button class="linkbtn" id="lbRefresh" type="button">Refresh</button>
+            <button class="del" id="lbLeave" type="button">Leave this leaderboard</button>
+          </div>
+        </section>
+      </div>
+    </div>
     <!-- ACCOUNT -->
     <div class="view" id="v-account" hidden>
       <div class="head"><h1>Account</h1><p class="sub">Log in and your runs, places and photos follow you to any phone or laptop.</p></div>
@@ -447,7 +521,7 @@ footer{color:var(--muted);font-size:.82rem}
 <script>
 (function(){
   var KEY = 'runthestreak.v1';
-  var VIEWS = ['streak','log','missions','map','runs','account'];
+  var VIEWS = ['streak','log','missions','map','runs','friends','account'];
   var $ = function(id){ return document.getElementById(id); };
   function el(tag, cls, text){ var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
 
@@ -660,6 +734,7 @@ footer{color:var(--muted);font-size:.82rem}
 
   function render(){
     var st = streaks(), rt = rating(), today = ymd(daysAgo(0)), ws = weekStart();
+    pushStats(st, rt);
     $('exampleNotice').hidden = !state.examples;
 
     /* streak circle */
@@ -971,6 +1046,7 @@ footer{color:var(--muted);font-size:.82rem}
     Array.prototype.forEach.call(document.querySelectorAll('.links a'), function(a){ a.classList.toggle('on', a.getAttribute('data-v') === v); });
     if (!fromHash){ try { history.replaceState(null, '', '#' + v); } catch (e) {} }
     window.scrollTo(0, 0);
+    if (v === 'friends' && user && lb.ok) loadBoard();
     if (v === 'map'){ var fresh = !map; initMap(); setTimeout(function(){ if (map){ map.invalidateSize(); if (fresh) fit(); } }, 60); }
   }
   document.addEventListener('click', function(e){
@@ -1045,7 +1121,7 @@ footer{color:var(--muted);font-size:.82rem}
         places: res[1].data.map(function(p){ return { id: p.id, name: p.name, lat: p.lat, lng: p.lng }; }),
         goal: (res[2].data && res[2].data.goal) || 15, examples: false
       };
-      photos = {}; render();
+      photos = {}; cloudReady = true; render();
       var withPhoto = state.runs.filter(function(r){ return r.hasPhoto; });
       if (!withPhoto.length) return;
       return sb.storage.from('photos').createSignedUrls(withPhoto.map(function(r){ return photoPath(r.id); }), 3600).then(function(out){
@@ -1056,7 +1132,7 @@ footer{color:var(--muted);font-size:.82rem}
   }
   function setUser(u){
     if ((u && user && u.id === user.id) || (!u && !user)){ showAccount(); return; }
-    user = u; photos = {};
+    user = u; photos = {}; cloudReady = false; lbStart();
     if (u) loadCloud(); else { state = loadLocal(); render(); loadPhotos().then(render); }
     showAccount();
   }
@@ -1118,9 +1194,208 @@ footer{color:var(--muted);font-size:.82rem}
     try { navigator.clipboard.writeText(a).then(function(){ toast('Address copied.'); }, function(){ toast('Could not copy. The address is ' + a); }); }
     catch (e) { toast('Could not copy. The address is ' + a); }
   });
+
+  /* ---------- leaderboards ---------- */
+  var cloudReady = false, lastPush = '', pushTimer = null;
+  var lb = { ok: false, me: {}, groups: [], gid: null, rows: [], metric: 'streak' };
+  var JOIN = 'runthestreak.join';
+  function siteUrl(){ return /runthestreak/.test(location.hostname) ? location.origin + location.pathname : 'https://runthestreak.vercel.app/'; }
+  function joinWaiting(){ try { return localStorage.getItem(JOIN) || ''; } catch (e) { return ''; } }
+  function setPendingJoin(c){ try { if (c) localStorage.setItem(JOIN, c); else localStorage.removeItem(JOIN); } catch (e) {} }
+  function pushStats(st, rt){
+    if (!user || !sb || !cloudReady || state.examples) return;
+    var ws = weekStart(), wk = 0, tot = 0, last = null;
+    state.runs.forEach(function(r){ tot += r.km; if (r.date >= ws) wk += r.km; if (!last || r.date > last) last = r.date; });
+    var row = { id: user.id, streak: st.cur, last_run: last, week_km: Math.round(wk*100)/100, week_start: ws, rating: rt.r, best5k: rt.best5 ? Math.round(rt.best5) : null, total_km: Math.round(tot*100)/100 };
+    var sig = JSON.stringify(row);
+    if (sig === lastPush) return;
+    clearTimeout(pushTimer);
+    pushTimer = setTimeout(function(){
+      row.updated_at = new Date().toISOString();
+      sb.from('profiles').upsert(row).then(function(res){ if (!res.error){ lastPush = sig; if (cur === 'friends') loadBoard(); } });
+    }, 700);
+  }
+  function lbErr(t){ $('lbErr').textContent = t || ''; $('lbErr').hidden = !t; }
+  function avatarInto(node, p){
+    node.textContent = '';
+    if (p && p.avatar && /^data:image\/jpeg;base64,/.test(p.avatar)){ var i = el('img'); i.src = p.avatar; i.alt = ''; node.appendChild(i); }
+    else node.textContent = ((p && p.name) || '?').trim().charAt(0) || '?';
+  }
+  function showFriends(){
+    $('lbOut').hidden = !!user && lb.ok; $('lbIn').hidden = !(user && lb.ok);
+    $('lbLogin').hidden = !!user || !sb;
+    $('lbOutMsg').textContent = !sb ? 'Leaderboards work on the real website: runthestreak.vercel.app'
+      : !user ? (joinWaiting() ? 'You have been invited to a leaderboard. Log in or sign up to join it.' : 'Log in to make a leaderboard and invite your friends.')
+      : lb.failed ? 'Leaderboards are not switched on yet. The database setup still needs to be run.' : 'Loading your leaderboards...';
+    if (!(user && lb.ok)) return;
+    avatarInto($('meAvatar'), lb.me);
+    if (document.activeElement !== $('meName')) $('meName').value = lb.me.name || '';
+    var tabs = $('lbTabs'); tabs.textContent = '';
+    lb.groups.forEach(function(g){
+      var b = el('button', 'btn' + (g.id === lb.gid ? ' on' : ''), g.name); b.type = 'button';
+      b.addEventListener('click', function(){ lb.gid = g.id; lb.rows = []; leaveArmed = false; showFriends(); loadBoard(); });
+      tabs.appendChild(b);
+    });
+    if (!lb.groups.length) tabs.appendChild(el('p', 'empty', 'No leaderboards yet. Make one, then send the invite link to your friends.'));
+    var g = group(); $('lbBoard').hidden = !g;
+    if (!g) return;
+    var link = siteUrl() + '?join=' + g.code;
+    $('lbLink').textContent = link; $('lbCode').textContent = g.code;
+    $('lbInviteTitle').textContent = 'Invite people to ' + g.name;
+    $('lbLeave').textContent = leaveArmed ? 'Tap again to confirm' : (g.owner === user.id ? 'Delete this leaderboard' : 'Leave this leaderboard');
+    Array.prototype.forEach.call(document.querySelectorAll('#lbMetrics button'), function(b){ b.classList.toggle('on', b.getAttribute('data-m') === lb.metric); });
+    drawBoard();
+  }
+  function group(){ return lb.groups.filter(function(g){ return g.id === lb.gid; })[0] || null; }
+  function val(p){
+    var yest = ymd(daysAgo(1));
+    if (lb.metric === 'streak') return (p.last_run && p.last_run >= yest) ? p.streak : 0;
+    if (lb.metric === 'week') return p.week_start === weekStart() ? +p.week_km : 0;
+    if (lb.metric === 'rating') return p.rating;
+    return p.best5k ? -p.best5k : -Infinity;
+  }
+  function drawBoard(){
+    var list = $('lbList'); list.textContent = '';
+    var rows = lb.rows.slice().sort(function(a, b){ return val(b) - val(a); });
+    rows.forEach(function(p, i){
+      var li = el('li', p.id === user.id ? 'you' : '');
+      li.appendChild(el('span', 'rank', i + 1));
+      var av = el('span', 'avatar'); avatarInto(av, p); li.appendChild(av);
+      var meta = el('div', 'meta');
+      meta.appendChild(el('strong', '', (p.name || 'Runner') + (p.id === user.id ? ' (you)' : '')));
+      meta.appendChild(el('span', '', fmtKm(+p.total_km || 0) + ' km all time'));
+      li.appendChild(meta);
+      var v = val(p), out = el('span', 'val');
+      if (lb.metric === 'five') out.textContent = p.best5k ? fmtTime(p.best5k) : '--';
+      else { out.textContent = lb.metric === 'week' ? fmtKm(v) + ' ' : v + ' '; if (lb.metric !== 'rating') out.appendChild(el('small', '', lb.metric === 'week' ? 'km' : (v === 1 ? 'day' : 'days'))); }
+      li.appendChild(out);
+      list.appendChild(li);
+    });
+    if (rows.length === 1){
+      var gh = el('li', 'ghost'); gh.appendChild(el('span', 'rank', '2')); gh.appendChild(el('span', 'avatar', '+'));
+      var m = el('div', 'meta'); m.appendChild(el('strong', '', 'Nobody to beat yet')); m.appendChild(el('span', '', 'Send the invite link above to a friend.'));
+      gh.appendChild(m); gh.appendChild(el('span')); list.appendChild(gh);
+    }
+  }
+  function loadBoard(){
+    var gid = lb.gid; if (!gid || !user) return;
+    sb.from('group_members').select('user_id').eq('group_id', gid).then(function(res){
+      chk(res);
+      return sb.from('profiles').select('id,name,avatar,streak,last_run,week_km,week_start,rating,best5k,total_km').in('id', res.data.map(function(m){ return m.user_id; }));
+    }).then(function(res){
+      chk(res); if (gid !== lb.gid) return;
+      lb.rows = res.data; showFriends();
+    }).catch(function(){ toast('Could not load the leaderboard. Check your internet.'); });
+  }
+  function lbStart(){
+    lb = { ok: false, me: {}, groups: [], gid: null, rows: [], metric: lb.metric }; lastPush = ''; leaveArmed = false;
+    if (!user || !sb){ showFriends(); return; }
+    var uid = user.id;
+    Promise.all([ sb.from('profiles').select('name,avatar').eq('id', uid).maybeSingle(), sb.from('groups').select('id,name,code,owner').order('created_at') ]).then(function(res){
+      chk(res[0]); chk(res[1]);
+      if (!user || user.id !== uid) return;
+      lb.ok = true; lb.me = res[0].data || {}; lb.groups = res[1].data;
+      if (!lb.me.name){
+        lb.me.name = (user.email || 'Runner').split('@')[0].slice(0, 20);
+        sb.from('profiles').upsert({ id: uid, name: lb.me.name }).then(function(){});
+      }
+      var code = joinWaiting();
+      if (code) return joinCode(code, true);
+      if (lb.groups.length) lb.gid = lb.groups[0].id;
+      showFriends(); loadBoard();
+    }).catch(function(){ lb.failed = true; showFriends(); });
+    showFriends();
+  }
+  function joinCode(code, fromLink){
+    return sb.rpc('join_group', { p_code: code }).then(function(res){
+      setPendingJoin('');
+      if (res.error){ if (fromLink){ toast(res.error.message); if (lb.groups.length) lb.gid = lb.groups[0].id; showFriends(); loadBoard(); } else lbErr(res.error.message); return; }
+      var g = res.data;
+      if (!lb.groups.some(function(x){ return x.id === g.id; })) lb.groups.push({ id: g.id, name: g.name, code: g.code, owner: g.owner });
+      lb.gid = g.id; lb.rows = []; lbErr('');
+      $('lbJoinForm').hidden = true; $('lbJoinCode').value = '';
+      toast('You joined ' + g.name + '.'); go('friends'); showFriends(); loadBoard();
+    });
+  }
+  var leaveArmed = false;
+  $('lbLogin').addEventListener('click', function(){ if (sb){ acct(''); setSkip(false); } });
+  $('lbNewBtn').addEventListener('click', function(){ $('lbNewForm').hidden = !$('lbNewForm').hidden; $('lbJoinForm').hidden = true; lbErr(''); if (!$('lbNewForm').hidden) $('lbNewName').focus(); });
+  $('lbJoinBtn').addEventListener('click', function(){ $('lbJoinForm').hidden = !$('lbJoinForm').hidden; $('lbNewForm').hidden = true; lbErr(''); if (!$('lbJoinForm').hidden) $('lbJoinCode').focus(); });
+  $('lbNewForm').addEventListener('submit', function(ev){
+    ev.preventDefault(); var n = $('lbNewName').value.trim();
+    if (!n){ lbErr('Give your leaderboard a name.'); return; }
+    sb.rpc('create_group', { p_name: n }).then(function(res){
+      if (res.error){ lbErr(res.error.message); return; }
+      var g = res.data; lb.groups.push({ id: g.id, name: g.name, code: g.code, owner: g.owner });
+      lb.gid = g.id; lb.rows = []; lbErr(''); $('lbNewName').value = ''; $('lbNewForm').hidden = true;
+      showFriends(); loadBoard(); toast('Leaderboard made. Now send the invite link.');
+    });
+  });
+  $('lbJoinForm').addEventListener('submit', function(ev){
+    ev.preventDefault(); var c = $('lbJoinCode').value.trim();
+    if (!c){ lbErr('Type the invite code.'); return; }
+    joinCode(c, false);
+  });
+  function inviteText(){ var g = group(); return 'Race me on RunTheStreak. Join my leaderboard "' + g.name + '": ' + siteUrl() + '?join=' + g.code; }
+  function copyInvite(text){
+    try { navigator.clipboard.writeText(text).then(function(){ toast('Invite link copied. Paste it to a friend.'); }, function(){ toast('Could not copy. Press and hold the link to copy it.'); }); }
+    catch (e) { toast('Could not copy. Press and hold the link to copy it.'); }
+  }
+  $('lbCopy').addEventListener('click', function(){ if (group()) copyInvite($('lbLink').textContent); });
+  $('lbShare').addEventListener('click', function(){
+    if (!group()) return;
+    if (navigator.share) navigator.share({ title: 'RunTheStreak', text: inviteText() }).catch(function(){});
+    else copyInvite(inviteText());
+  });
+  $('lbMetrics').addEventListener('click', function(e){ var m = e.target.getAttribute && e.target.getAttribute('data-m'); if (m){ lb.metric = m; showFriends(); } });
+  $('lbRefresh').addEventListener('click', loadBoard);
+  $('lbLeave').addEventListener('click', function(){
+    var g = group(); if (!g) return;
+    if (!leaveArmed){ leaveArmed = true; showFriends(); return; }
+    leaveArmed = false;
+    var q = g.owner === user.id ? sb.from('groups').delete().eq('id', g.id) : sb.from('group_members').delete().eq('group_id', g.id).eq('user_id', user.id);
+    q.then(function(res){
+      if (res.error){ toast('That did not work. Try again.'); showFriends(); return; }
+      lb.groups = lb.groups.filter(function(x){ return x.id !== g.id; });
+      lb.gid = lb.groups.length ? lb.groups[0].id : null; lb.rows = [];
+      showFriends(); loadBoard();
+    });
+  });
+  $('meName').addEventListener('change', function(){
+    var n = this.value.trim().slice(0, 20); if (!n || !user) return;
+    lb.me.name = n;
+    sb.from('profiles').upsert({ id: user.id, name: n }).then(function(res){ if (res.error) toast('Could not save your name.'); else { toast('Name saved.'); loadBoard(); } });
+  });
+  $('meAvatar').addEventListener('click', function(){ $('meFile').click(); });
+  $('meFile').addEventListener('change', function(){
+    var f = this.files && this.files[0]; this.value = ''; if (!f || !user) return;
+    var fr = new FileReader();
+    fr.onload = function(){
+      var img = new Image();
+      img.onload = function(){
+        var side = Math.min(img.width, img.height), c = document.createElement('canvas'); c.width = c.height = 128;
+        c.getContext('2d').drawImage(img, (img.width - side)/2, (img.height - side)/2, side, side, 0, 0, 128, 128);
+        var data = c.toDataURL('image/jpeg', 0.8);
+        lb.me.avatar = data; showFriends();
+        sb.from('profiles').upsert({ id: user.id, avatar: data }).then(function(res){ if (res.error) toast('Could not save your photo.'); else { toast('Photo saved.'); loadBoard(); } });
+      };
+      img.onerror = function(){ toast('That picture could not be opened. Try another one.'); };
+      img.src = fr.result;
+    };
+    fr.readAsDataURL(f);
+  });
+  (function(){
+    var m = /[?&]join=([A-Za-z0-9]{4,12})/.exec(location.search);
+    if (!m) return;
+    setPendingJoin(m[1].toUpperCase());
+    try { history.replaceState(null, '', location.pathname + '#friends'); } catch (e) {}
+    skipped = false; setMode('signup');
+    $('gateSub').textContent = 'You have been invited to a leaderboard. Sign up to join it, or log in if you already have an account.';
+  })();
+  showFriends();
   if (sb) sb.auth.onAuthStateChange(function(ev, session){ setTimeout(function(){ ready = true; setUser(session ? session.user : null); }, 0); });
   showAccount();
 })();
 </script>
-</body>
-</html>
+
+</body></html>
