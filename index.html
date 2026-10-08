@@ -132,9 +132,15 @@ ul.list .num small{font-size:.9rem;font-style:normal;font-weight:600;color:var(-
 .empty{color:var(--muted);padding-block:10px}
 
 /* map */
-#map{height:min(62vh,520px);min-height:320px;border-radius:14px;border:1px solid var(--line);background:var(--sea);position:relative;z-index:0;isolation:isolate}
+#map{height:min(72vh,640px);min-height:340px;border-radius:14px;border:1px solid var(--line);background:var(--sea);position:relative;z-index:0;isolation:isolate}
 .map-tools{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
 .pin{background:var(--flame);color:var(--on-bright);border-radius:50%;border:3px solid var(--bg);display:grid;place-items:center;font-family:var(--display);font-weight:600;font-size:1rem;box-shadow:0 0 0 2px var(--flame)}
+.me{background:var(--sky);border:3px solid var(--bg);border-radius:50%;box-shadow:0 0 0 3px var(--sky)}
+.search{display:flex;gap:8px}
+.search input{flex:1}
+.results{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.result{width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:8px;color:var(--ink);font:inherit;padding:10px 12px;cursor:pointer}
+.result:hover{border-color:var(--sky)}
 .pin.new{background:var(--neon);box-shadow:0 0 0 2px var(--neon)}
 .pop{display:flex;flex-direction:column;gap:8px;min-width:190px;font-family:var(--body);font-size:.9rem}
 .pop strong{font-size:1.05rem}
@@ -154,7 +160,8 @@ ul.list .num small{font-size:.9rem;font-style:normal;font-weight:600;color:var(-
 .leaflet-zoom-anim .leaflet-zoom-animated{will-change:transform;transition:transform .25s cubic-bezier(0,0,.25,1)}
 .leaflet-zoom-anim .leaflet-tile,.leaflet-pan-anim .leaflet-tile{transition:none}
 .leaflet-zoom-anim .leaflet-zoom-hide{visibility:hidden}
-.leaflet-pane{z-index:400}.leaflet-tile-pane{z-index:200;filter:invert(1) hue-rotate(180deg) brightness(.9) contrast(.9) saturate(.5)}
+.leaflet-pane{z-index:400}.leaflet-tile-pane{z-index:200}
+.leaflet-overlay-pane svg{max-width:none!important;max-height:none!important}
 .leaflet-overlay-pane{z-index:400}.leaflet-shadow-pane{z-index:500}.leaflet-marker-pane{z-index:600}.leaflet-tooltip-pane{z-index:650}.leaflet-popup-pane{z-index:700}
 .leaflet-control{position:relative;z-index:800;pointer-events:auto;float:left;clear:both}
 .leaflet-top,.leaflet-bottom{position:absolute;z-index:1000;pointer-events:none}
@@ -304,12 +311,24 @@ footer{color:var(--muted);font-size:.82rem}
 
     <!-- MAP -->
     <div class="view" id="v-map" hidden>
-      <div class="head"><h1>Where you've run</h1><p class="sub">Tap a pin to see your runs and photos there.</p></div>
+      <div class="head"><h1>Where you've run</h1><p class="sub">Search for a place or show your location, then save it. Tap a pin to see your runs and photos there.</p></div>
+      <form class="search" id="searchForm" novalidate>
+        <input id="q" type="search" placeholder="Search for a place, like Kite Beach Dubai" aria-label="Search for a place">
+        <button class="btn" type="submit">Search</button>
+      </form>
+      <ul class="results" id="results" hidden></ul>
+      <div class="map-tools" role="group" aria-label="Map style">
+        <span class="small">Map style</span>
+        <button class="btn on" type="button" data-style="green">Green and blue</button>
+        <button class="btn" type="button" data-style="streets">Streets</button>
+        <button class="btn" type="button" data-style="satellite">Satellite</button>
+      </div>
       <div id="map"></div>
       <p class="small" id="mapNote" hidden></p>
       <div class="map-tools">
         <button class="btn" id="addPlace" type="button">Add a place</button>
-        <button class="linkbtn" id="hereBtn" type="button">Use where I am now</button>
+        <button class="btn" id="hereBtn" type="button">Show my location</button>
+        <button class="linkbtn" id="saveHere" type="button" hidden>Save where I am as a place</button>
       </div>
       <form class="card" id="placeForm" hidden novalidate>
         <label class="c4">Name this place <input id="pName" type="text" maxlength="40" placeholder="Kite Beach"></label>
@@ -686,15 +705,41 @@ footer{color:var(--muted);font-size:.82rem}
     if (map) return;
     if (!window.L){ note('The map could not load. Check your internet connection and reload the page.'); return; }
     map = L.map('map', { worldCopyJump: true, minZoom: 1 }).setView([25.2, 55.27], 2);
-    var ok = false;
-    var tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' });
-    tiles.on('tileload', function(){ ok = true; });
-    tiles.on('tileerror', function(){ if (!ok && map.hasLayer(tiles)){ map.removeLayer(tiles); note('The map background could not load here, but your pins still work. It loads on the real website.'); } });
-    tiles.addTo(map);
+    setStyle(styleNow);
     pinLayer = L.layerGroup().addTo(map);
     map.on('click', function(e){ if (addMode) setPending(e.latlng.lat, e.latlng.lng); });
-    drawPins(); fit();
+    drawPins();
   }
+  var STYLES = {
+    green: ['https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', 'Map data &copy; OpenStreetMap contributors, SRTM. Style &copy; OpenTopoMap (CC-BY-SA)', 17, 'abc'],
+    streets: ['https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', '&copy; OpenStreetMap contributors &copy; CARTO', 19, 'abcd'],
+    satellite: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', 'Imagery &copy; Esri and its data providers', 18, 'abc']
+  };
+  var styleNow = 'green', tileLayer = null;
+  try { var ss = localStorage.getItem('runthestreak.map'); if (ss && STYLES[ss]) styleNow = ss; } catch (e) {}
+  function setStyle(name, tried){
+    if (!map) return;
+    tried = tried || {}; tried[name] = true;
+    if (tileLayer) map.removeLayer(tileLayer);
+    styleNow = name;
+    Array.prototype.forEach.call(document.querySelectorAll('[data-style]'), function(b){ b.classList.toggle('on', b.getAttribute('data-style') === name); });
+    var s = STYLES[name], ok = false, t = L.tileLayer(s[0], { maxZoom: 19, maxNativeZoom: s[2], subdomains: s[3], attribution: s[1] });
+    t.on('tileload', function(){ ok = true; });
+    t.on('tileerror', function(){
+      if (ok || tileLayer !== t) return;
+      var next = Object.keys(STYLES).filter(function(k){ return !tried[k]; })[0];
+      if (next) setStyle(next, tried);
+      else { map.removeLayer(t); note('The map background could not load here, but your pins still work. It loads on the real website.'); }
+    });
+    tileLayer = t; t.addTo(map);
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('[data-style]'), function(b){
+    b.addEventListener('click', function(){
+      if (!map){ initMap(); if (!map) return; }
+      var n = b.getAttribute('data-style'); setStyle(n);
+      try { localStorage.setItem('runthestreak.map', n); } catch (e) {}
+    });
+  });
   function fit(){
     if (!map || !state.places.length) return;
     map.fitBounds(L.latLngBounds(state.places.map(function(p){ return [p.lat, p.lng]; })).pad(0.3), { maxZoom: 12 });
@@ -727,21 +772,70 @@ footer{color:var(--muted);font-size:.82rem}
     addMode = false; pending = null;
     if (pendingMarker && map){ map.removeLayer(pendingMarker); } pendingMarker = null;
     $('addPlace').classList.remove('on'); $('addPlace').textContent = 'Add a place';
-    $('placeForm').hidden = true; $('pName').value = ''; $('placeErr').hidden = true;
+    $('placeForm').hidden = true; $('pName').value = ''; $('placeErr').hidden = true; note('');
+  }
+  function startAdd(){
+    addMode = true; $('addPlace').classList.add('on'); $('addPlace').textContent = 'Cancel adding';
+    note('Tap the map to choose the spot, then name it and save.');
   }
   $('addPlace').addEventListener('click', function(){
     if (addMode){ stopAdding(); note(''); return; }
     if (!map){ initMap(); if (!map) return; }
-    addMode = true; this.classList.add('on'); this.textContent = 'Now tap the map';
+    startAdd();
   });
+
+  var watchId = null, meMarker = null, meCircle = null, mePos = null;
+  function stopWatch(){
+    if (watchId !== null){ navigator.geolocation.clearWatch(watchId); watchId = null; }
+    if (meMarker){ map.removeLayer(meMarker); map.removeLayer(meCircle); meMarker = meCircle = null; }
+    mePos = null;
+    $('hereBtn').textContent = 'Show my location'; $('hereBtn').classList.remove('on'); $('saveHere').hidden = true;
+  }
   $('hereBtn').addEventListener('click', function(){
     if (!map){ initMap(); if (!map) return; }
-    if (!navigator.geolocation){ note('This browser cannot share your location. Tap the map instead.'); return; }
-    navigator.geolocation.getCurrentPosition(function(pos){
-      addMode = true; $('addPlace').classList.add('on'); $('addPlace').textContent = 'Now tap the map';
-      map.setView([pos.coords.latitude, pos.coords.longitude], 14);
-      setPending(pos.coords.latitude, pos.coords.longitude);
-    }, function(){ note('Could not get your location. Press "Add a place" and tap the map instead.'); });
+    if (watchId !== null){ stopWatch(); note(''); return; }
+    if (!navigator.geolocation){ note('This browser cannot share your location. Search or tap the map instead.'); return; }
+    note('Finding you. If your browser asks, choose Allow.');
+    this.textContent = 'Stop following'; this.classList.add('on');
+    var first = true, sky = getComputedStyle(document.documentElement).getPropertyValue('--sky').trim();
+    watchId = navigator.geolocation.watchPosition(function(pos){
+      var ll = [pos.coords.latitude, pos.coords.longitude]; mePos = ll;
+      if (!meMarker){
+        meCircle = L.circle(ll, { radius: pos.coords.accuracy, color: sky, weight: 1, fillOpacity: 0.12, interactive: false }).addTo(map);
+        meMarker = L.marker(ll, { icon: L.divIcon({ className: 'me', iconSize: [20, 20], iconAnchor: [10, 10] }), interactive: false, zIndexOffset: 1000 }).addTo(map);
+      } else { meMarker.setLatLng(ll); meCircle.setLatLng(ll); meCircle.setRadius(pos.coords.accuracy); }
+      if (first){ map.setView(ll, 16); first = false; if (!addMode) note(''); } else map.panTo(ll);
+      $('saveHere').hidden = false;
+    }, function(){
+      stopWatch();
+      note('Could not get your location. Check that location is allowed for this site in your browser settings.');
+    }, { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 });
+  });
+  $('saveHere').addEventListener('click', function(){ if (mePos){ startAdd(); setPending(mePos[0], mePos[1]); } });
+
+  $('searchForm').addEventListener('submit', function(ev){
+    ev.preventDefault();
+    var q = $('q').value.trim(), box = $('results');
+    if (!q) return;
+    if (!map){ initMap(); if (!map) return; }
+    box.hidden = false; box.textContent = ''; box.appendChild(el('li', 'empty', 'Searching...'));
+    fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&q=' + encodeURIComponent(q), { headers: { 'Accept': 'application/json' } })
+      .then(function(r){ if (!r.ok) throw new Error('search'); return r.json(); })
+      .then(function(list){
+        box.textContent = '';
+        if (!list.length){ box.appendChild(el('li', 'empty', 'Nothing found. Try adding the city or country.')); return; }
+        list.forEach(function(it){
+          var li = el('li'), b = el('button', 'result', it.display_name); b.type = 'button';
+          b.addEventListener('click', function(){
+            var lat = +it.lat, lng = +it.lon;
+            map.setView([lat, lng], 15); startAdd(); setPending(lat, lng);
+            $('pName').value = String(it.name || it.display_name.split(',')[0]).slice(0, 40);
+            box.hidden = true;
+          });
+          li.appendChild(b); box.appendChild(li);
+        });
+      })
+      .catch(function(){ box.textContent = ''; box.appendChild(el('li', 'empty', 'Search is not working right now. Check your internet and try again.')); });
   });
   $('placeCancel').addEventListener('click', stopAdding);
   $('placeForm').addEventListener('submit', function(ev){
@@ -766,7 +860,7 @@ footer{color:var(--muted);font-size:.82rem}
     Array.prototype.forEach.call(document.querySelectorAll('.links a'), function(a){ a.classList.toggle('on', a.getAttribute('data-v') === v); });
     if (!fromHash){ try { history.replaceState(null, '', '#' + v); } catch (e) {} }
     window.scrollTo(0, 0);
-    if (v === 'map'){ initMap(); setTimeout(function(){ if (map){ map.invalidateSize(); fit(); } }, 60); }
+    if (v === 'map'){ var fresh = !map; initMap(); setTimeout(function(){ if (map){ map.invalidateSize(); if (fresh) fit(); } }, 60); }
   }
   document.addEventListener('click', function(e){
     var a = e.target.closest ? e.target.closest('a[data-v]') : null;
