@@ -192,6 +192,8 @@ ul.list .num small{font-size:.9rem;font-style:normal;font-weight:600;color:var(-
 #viewer img{max-width:100%;max-height:74vh;border-radius:12px}
 #viewer p{text-align:center}
 footer{color:var(--muted);font-size:.82rem}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:90;background:var(--raised);border:1px solid var(--line);border-radius:10px;padding:10px 16px;font-weight:600;max-width:calc(100% - 32px)}
+.stack{display:flex;flex-direction:column;gap:14px;align-items:flex-start;max-width:600px}
 
 @media (max-width:859px){
   body{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))}
@@ -199,7 +201,7 @@ footer{color:var(--muted);font-size:.82rem}
   .side{position:fixed;inset:auto 0 0 0;top:auto;z-index:50;background:var(--surface);border-top:1px solid var(--line);padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px))}
   .side .mark,.rate-mini{display:none}
   .links{flex-direction:row;gap:2px}
-  .links a{flex:1;text-align:center;padding:11px 2px;font-size:.8rem}
+  .links a{flex:1;text-align:center;padding:11px 1px;font-size:.74rem}
   .only-phone{display:block;text-align:center}
   .home{grid-template-columns:minmax(0,1fr);gap:30px}
   .hero{min-height:min(66vh,560px);justify-content:center}
@@ -224,6 +226,7 @@ footer{color:var(--muted);font-size:.82rem}
       <a href="#missions" data-v="missions">Missions</a>
       <a href="#map" data-v="map">Map</a>
       <a href="#runs" data-v="runs">Runs</a>
+      <a href="#account" data-v="account">Account</a>
     </div>
   </nav>
 
@@ -235,6 +238,7 @@ footer{color:var(--muted);font-size:.82rem}
         <span>These are example runs and places so you can see how it works. Log your first run and they disappear.</span>
         <button class="linkbtn" id="clearExamples" type="button">Clear examples</button>
       </div>
+      <p class="small" id="guestTip" hidden>Your runs are saved on this device only. <a class="linkbtn" href="#account" data-v="account">Log in</a> to see them on every device.</p>
       <div class="home">
         <div class="hero">
           <button class="ring" id="ring" type="button">
@@ -357,11 +361,30 @@ footer{color:var(--muted);font-size:.82rem}
         <h2>All runs</h2>
         <ul class="list" id="runList"></ul>
       </section>
-      <footer>Your runs and photos are saved in this browser on this device.</footer>
+      <footer id="saveNote">Your runs and photos are saved in this browser on this device.</footer>
+    </div>
+    <!-- ACCOUNT -->
+    <div class="view" id="v-account" hidden>
+      <div class="head"><h1>Account</h1><p class="sub">Log in and your runs, places and photos follow you to any phone or laptop.</p></div>
+      <div class="stack" id="signedOut">
+        <form class="card" id="authForm" novalidate>
+          <label class="c4">Email <input id="aEmail" type="email" autocomplete="email" placeholder="you@example.com"></label>
+          <label class="c4">Password <input id="aPass" type="password" autocomplete="current-password" placeholder="At least 6 characters"></label>
+          <button class="primary c2" type="submit">Log in</button>
+          <button class="btn c2" id="signUp" type="button">Create account</button>
+        </form>
+      </div>
+      <div class="stack" id="signedIn" hidden>
+        <p>Logged in as <strong id="whoami"></strong></p>
+        <button class="btn" id="importBtn" type="button" hidden>Copy runs from this device into my account</button>
+        <button class="btn" id="logout" type="button">Log out</button>
+      </div>
+      <p class="hero-msg" id="acctMsg" hidden></p>
     </div>
   </main>
 </div>
 
+<div id="toast" role="status" hidden></div>
 <div id="viewer" hidden>
   <img id="viewerImg" alt="">
   <p id="viewerCap"></p>
@@ -369,10 +392,11 @@ footer{color:var(--muted);font-size:.82rem}
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script>
 (function(){
   var KEY = 'runthestreak.v1';
-  var VIEWS = ['streak','log','missions','map','runs'];
+  var VIEWS = ['streak','log','missions','map','runs','account'];
   var $ = function(id){ return document.getElementById(id); };
   function el(tag, cls, text){ var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
 
@@ -400,13 +424,29 @@ footer{color:var(--muted);font-size:.82rem}
     var runs = e.map(function(r,i){ return {id:'ex'+i, date:ymd(daysAgo(r[0])), km:r[1], sec:r[2], note:r[3], place:r[4]}; });
     return { runs: runs, places: places };
   }
-  var ex = examples();
-  var state = { runs: ex.runs, places: ex.places, goal: 15, examples: true };
-  try {
-    var saved = JSON.parse(localStorage.getItem(KEY));
-    if (saved && Array.isArray(saved.runs)) state = { runs: saved.runs, places: Array.isArray(saved.places) ? saved.places : [], goal: +saved.goal || 15, examples: false };
-  } catch (e) {}
-  function save(){ try { localStorage.setItem(KEY, JSON.stringify({runs: state.runs, places: state.places, goal: state.goal})); } catch (e) {} }
+  var SB_URL = 'https://pbptfmbcfolszxdfledb.supabase.co';
+  var SB_KEY = 'sb_publishable_aDVxMBHg1Vl7qVfXhXDmKw_eSUJVXf_';
+  var sb = null, user = null;
+  try { if (window.supabase) sb = window.supabase.createClient(SB_URL, SB_KEY); } catch (e) {}
+
+  function loadLocal(){
+    try {
+      var saved = JSON.parse(localStorage.getItem(KEY));
+      if (saved && Array.isArray(saved.runs)) return { runs: saved.runs, places: Array.isArray(saved.places) ? saved.places : [], goal: +saved.goal || 15, examples: false };
+    } catch (e) {}
+    var ex = examples();
+    return { runs: ex.runs, places: ex.places, goal: 15, examples: true };
+  }
+  var state = loadLocal();
+  function save(){
+    if (user) return;
+    try { localStorage.setItem(KEY, JSON.stringify({runs: state.runs, places: state.places, goal: state.goal})); } catch (e) {}
+  }
+  function newId(){ return (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : 'x' + Date.now() + Math.random().toString(36).slice(2); }
+  var toastTimer = null;
+  function toast(text){ $('toast').textContent = text; $('toast').hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(function(){ $('toast').hidden = true; }, 4000); }
+  function chk(res){ if (res && res.error) throw res.error; return res; }
+  function cloud(q){ return Promise.resolve(q).then(chk).catch(function(){ toast('Could not save to your account. Check your internet.'); }); }
   function endExamples(keepPlace){
     if (!state.examples) return;
     state.runs = [];
@@ -430,21 +470,37 @@ footer{color:var(--muted);font-size:.82rem}
     });
     return dbp;
   }
+  function toBlob(dataUrl){
+    var bin = atob(dataUrl.split(',')[1]), arr = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    return new Blob([arr], { type: 'image/jpeg' });
+  }
+  function photoPath(id){ return user.id + '/' + id + '.jpg'; }
+  function uploadPhoto(id, data){
+    return sb.storage.from('photos').upload(photoPath(id), toBlob(data), { contentType: 'image/jpeg', upsert: true }).then(chk)
+      .then(function(){ return sb.from('runs').update({ has_photo: true }).eq('id', id); }).then(chk);
+  }
   function putPhoto(id, data){
     photos[id] = data;
+    if (user){
+      var r = state.runs.filter(function(x){ return x.id === id; })[0]; if (r) r.hasPhoto = true;
+      return cloud(uploadPhoto(id, data));
+    }
     return db().then(function(d){ d.transaction('photos','readwrite').objectStore('photos').put(data, id); }).catch(function(){});
   }
   function dropPhoto(id){
-    delete photos[id];
+    var had = photos[id]; delete photos[id];
+    if (user){ if (had) cloud(sb.storage.from('photos').remove([photoPath(id)])); return; }
     db().then(function(d){ d.transaction('photos','readwrite').objectStore('photos').delete(id); }).catch(function(){});
   }
-  function loadPhotos(){
+  function localPhotos(){
     return db().then(function(d){ return new Promise(function(res){
-      var c = d.transaction('photos').objectStore('photos').openCursor();
-      c.onsuccess = function(){ var k = c.result; if (k){ photos[k.key] = k.value; k.continue(); } else res(); };
-      c.onerror = function(){ res(); };
-    }); }).catch(function(){});
+      var out = {}, c = d.transaction('photos').objectStore('photos').openCursor();
+      c.onsuccess = function(){ var k = c.result; if (k){ out[k.key] = k.value; k.continue(); } else res(out); };
+      c.onerror = function(){ res(out); };
+    }); }).catch(function(){ return {}; });
   }
+  function loadPhotos(){ return localPhotos().then(function(o){ if (!user) Object.keys(o).forEach(function(k){ photos[k] = o[k]; }); }); }
   function shrink(file){
     return new Promise(function(res, rej){
       var fr = new FileReader();
@@ -540,6 +596,7 @@ footer{color:var(--muted);font-size:.82rem}
       del.addEventListener('click', function(){
         state.runs = state.runs.filter(function(x){ return x.id !== r.id; });
         dropPhoto(r.id);
+        if (user) cloud(sb.from('runs').delete().eq('id', r.id));
         if (!state.examples) save();
         render();
       });
@@ -689,6 +746,7 @@ footer{color:var(--muted);font-size:.82rem}
       var del = el('button', 'del', 'Delete'); del.type = 'button'; del.setAttribute('aria-label', 'Delete place ' + p.name);
       del.addEventListener('click', function(){
         state.places = state.places.filter(function(x){ return x.id !== p.id; });
+        if (user) cloud(sb.from('places').delete().eq('id', p.id));
         if (!state.examples) save();
         render();
       });
@@ -845,8 +903,10 @@ footer{color:var(--muted);font-size:.82rem}
     err.hidden = !msg; err.textContent = msg;
     if (msg) return;
     endExamples();
-    var p = { id: 'p' + Date.now(), name: name, lat: Math.round(pending.lat*1e5)/1e5, lng: Math.round(pending.lng*1e5)/1e5 };
-    state.places.push(p); save(); stopAdding(); render();
+    var p = { id: newId(), name: name, lat: Math.round(pending.lat*1e5)/1e5, lng: Math.round(pending.lng*1e5)/1e5 };
+    state.places.push(p); save();
+    if (user) cloud(sb.from('places').insert({ id: p.id, name: p.name, lat: p.lat, lng: p.lng }));
+    stopAdding(); render();
     $('fPlace').value = p.id;
   });
 
@@ -886,11 +946,12 @@ footer{color:var(--muted);font-size:.82rem}
     if (msg) return;
     var place = $('fPlace').value, file = $('fPhoto').files && $('fPhoto').files[0];
     endExamples(place);
-    var run = { id: 'r' + Date.now(), date: date, km: Math.round(km*100)/100, sec: min*60 + sec, note: $('fNote').value.trim(), place: placeById(place) ? place : '' };
+    var run = { id: newId(), date: date, km: Math.round(km*100)/100, sec: min*60 + sec, note: $('fNote').value.trim(), place: placeById(place) ? place : '' };
     state.runs.push(run); save();
+    var stored = user ? cloud(sb.from('runs').insert({ id: run.id, date: run.date, km: run.km, sec: run.sec, note: run.note, place: run.place, has_photo: false })) : Promise.resolve();
     $('fDist').value = ''; $('fMin').value = ''; $('fSec').value = ''; $('fNote').value = ''; $('fPhoto').value = '';
     var finish = function(){ render(); go('streak'); };
-    if (file){ shrink(file).then(function(data){ return putPhoto(run.id, data); }).catch(function(){}).then(finish); }
+    if (file){ shrink(file).then(function(data){ return stored.then(function(){ return putPhoto(run.id, data); }); }).catch(function(){}).then(finish); }
     else finish();
   });
   $('clearExamples').addEventListener('click', function(){ endExamples(); save(); render(); });
@@ -900,12 +961,91 @@ footer{color:var(--muted);font-size:.82rem}
   });
   $('goalInput').addEventListener('change', function(){
     var g = Math.round(parseFloat(this.value));
-    if (g >= 1 && g <= 300){ state.goal = g; if (!state.examples) save(); render(); }
+    if (g >= 1 && g <= 300){ state.goal = g; if (!state.examples) save(); if (user) cloud(sb.from('settings').upsert({ user_id: user.id, goal: g })); render(); }
   });
 
   render();
   go(location.hash.slice(1) || 'streak', true);
   loadPhotos().then(render);
+
+  /* ---------- accounts ---------- */
+  function acct(text){ $('acctMsg').textContent = text || ''; $('acctMsg').hidden = !text; }
+  function showAccount(){
+    $('signedOut').hidden = !!user; $('signedIn').hidden = !user;
+    $('guestTip').hidden = !!user || !sb;
+    $('whoami').textContent = user ? user.email : '';
+    $('saveNote').textContent = user ? 'Your runs and photos are saved to your account.' : 'Your runs and photos are saved in this browser on this device.';
+    var has = false; try { var s = JSON.parse(localStorage.getItem(KEY)); has = !!(s && s.runs && s.runs.length); } catch (e) {}
+    $('importBtn').hidden = !user || !has;
+    if (!sb) acct('Accounts cannot be reached from here. They work on the real website.');
+  }
+  function loadCloud(){
+    return Promise.all([ sb.from('runs').select('*'), sb.from('places').select('*'), sb.from('settings').select('goal').maybeSingle() ]).then(function(res){
+      chk(res[0]); chk(res[1]);
+      state = {
+        runs: res[0].data.map(function(r){ return { id: r.id, date: r.date, km: +r.km, sec: r.sec || 0, note: r.note || '', place: r.place || '', hasPhoto: !!r.has_photo }; }),
+        places: res[1].data.map(function(p){ return { id: p.id, name: p.name, lat: p.lat, lng: p.lng }; }),
+        goal: (res[2].data && res[2].data.goal) || 15, examples: false
+      };
+      photos = {}; render();
+      var withPhoto = state.runs.filter(function(r){ return r.hasPhoto; });
+      if (!withPhoto.length) return;
+      return sb.storage.from('photos').createSignedUrls(withPhoto.map(function(r){ return photoPath(r.id); }), 3600).then(function(out){
+        if (out.data) out.data.forEach(function(d, i){ if (d.signedUrl) photos[withPhoto[i].id] = d.signedUrl; });
+        render();
+      });
+    }).catch(function(){ toast('Could not load your runs. Check your internet and reload.'); });
+  }
+  function setUser(u){
+    if ((u && user && u.id === user.id) || (!u && !user)){ showAccount(); return; }
+    user = u; photos = {};
+    if (u) loadCloud(); else { state = loadLocal(); render(); loadPhotos().then(render); }
+    showAccount();
+  }
+  function creds(){
+    var e = $('aEmail').value.trim(), pw = $('aPass').value;
+    if (!e || pw.length < 6){ acct('Enter your email and a password of at least 6 characters.'); return null; }
+    return { email: e, password: pw };
+  }
+  $('authForm').addEventListener('submit', function(ev){
+    ev.preventDefault(); if (!sb) return;
+    var c = creds(); if (!c) return;
+    acct('Logging in...');
+    sb.auth.signInWithPassword(c).then(function(res){
+      if (res.error){ acct(res.error.message); return; }
+      acct(''); $('aPass').value = ''; go('streak');
+    });
+  });
+  $('signUp').addEventListener('click', function(){
+    if (!sb) return;
+    var c = creds(); if (!c) return;
+    acct('Creating your account...');
+    sb.auth.signUp({ email: c.email, password: c.password, options: { emailRedirectTo: location.origin } }).then(function(res){
+      if (res.error){ acct(res.error.message); return; }
+      if (res.data && res.data.session){ acct(''); $('aPass').value = ''; go('streak'); }
+      else acct('Almost done. Open the email we sent you and click the link, then log in here.');
+    });
+  });
+  $('logout').addEventListener('click', function(){ if (sb) sb.auth.signOut(); });
+  $('importBtn').addEventListener('click', function(){
+    var s = null; try { s = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
+    if (!s || !user) return;
+    var btn = this; btn.disabled = true; btn.textContent = 'Copying...';
+    var ids = {}, places = (s.places || []).map(function(p){ ids[p.id] = newId(); return { id: ids[p.id], name: p.name, lat: p.lat, lng: p.lng }; });
+    var runs = s.runs.map(function(r){ return { old: r.id, row: { id: newId(), date: r.date, km: r.km, sec: r.sec || 0, note: r.note || '', place: ids[r.place] || '', has_photo: false } }; });
+    localPhotos().then(function(local){
+      return Promise.resolve(places.length ? sb.from('places').insert(places) : null).then(chk)
+        .then(function(){ return sb.from('runs').insert(runs.map(function(x){ return x.row; })); }).then(chk)
+        .then(function(){ return runs.reduce(function(pr, x){ return local[x.old] ? pr.then(function(){ return uploadPhoto(x.row.id, local[x.old]); }) : pr; }, Promise.resolve()); });
+    }).then(function(){
+      try { localStorage.removeItem(KEY); } catch (e) {}
+      return loadCloud();
+    }).then(function(){ toast('Copied to your account.'); showAccount(); })
+      .catch(function(){ toast('Could not copy everything. Try again.'); })
+      .then(function(){ btn.disabled = false; btn.textContent = 'Copy runs from this device into my account'; });
+  });
+  if (sb) sb.auth.onAuthStateChange(function(ev, session){ setTimeout(function(){ setUser(session ? session.user : null); }, 0); });
+  showAccount();
 })();
 </script>
 </body>
