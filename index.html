@@ -192,6 +192,21 @@ ul.list .num small{font-size:.9rem;font-style:normal;font-weight:600;color:var(-
 #viewer img{max-width:100%;max-height:74vh;border-radius:12px}
 #viewer p{text-align:center}
 footer{color:var(--muted);font-size:.82rem}
+#gate{position:fixed;inset:0;z-index:80;background:var(--bg);overflow:auto;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr)}
+.gate-brand{display:flex;flex-direction:column;justify-content:center;gap:22px;padding:48px clamp(24px,6vw,96px);background:radial-gradient(circle at 20% 110%,color-mix(in srgb,var(--flame) 45%,transparent),transparent 60%),var(--surface);border-right:1px solid var(--line)}
+.gate-brand .mark{font-size:2rem}
+.gate-big{font-family:var(--display);font-style:italic;font-weight:800;text-transform:uppercase;font-size:clamp(3rem,7vw,6rem);line-height:.92}
+.gate-big span{color:var(--neon)}
+.gate-brand .sub{max-width:34ch;font-size:1.1rem}
+.gate-form{display:flex;flex-direction:column;justify-content:center;align-items:flex-start;gap:16px;padding:48px clamp(20px,5vw,80px)}
+.gate-form form{width:100%;max-width:440px}
+@media (max-width:859px){
+  #gate{grid-template-columns:minmax(0,1fr);grid-template-rows:auto 1fr}
+  .gate-brand{padding:28px 20px;gap:12px;border-right:0;border-bottom:1px solid var(--line)}
+  .gate-big{font-size:2.6rem}
+  .gate-brand .sub{display:none}
+  .gate-form{padding:24px 20px 40px;justify-content:flex-start}
+}
 #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:90;background:var(--raised);border:1px solid var(--line);border-radius:10px;padding:10px 16px;font-weight:600;max-width:calc(100% - 32px)}
 .stack{display:flex;flex-direction:column;gap:14px;align-items:flex-start;max-width:600px}
 
@@ -367,23 +382,38 @@ footer{color:var(--muted);font-size:.82rem}
     <div class="view" id="v-account" hidden>
       <div class="head"><h1>Account</h1><p class="sub">Log in and your runs, places and photos follow you to any phone or laptop.</p></div>
       <div class="stack" id="signedOut">
-        <form class="card" id="authForm" novalidate>
-          <label class="c4">Email <input id="aEmail" type="email" autocomplete="email" placeholder="you@example.com"></label>
-          <label class="c4">Password <input id="aPass" type="password" autocomplete="current-password" placeholder="At least 6 characters"></label>
-          <button class="primary c2" type="submit">Log in</button>
-          <button class="btn c2" id="signUp" type="button">Create account</button>
-        </form>
+        <p>You are not logged in, so runs are saved on this device only.</p>
+        <button class="btn on" id="openGate" type="button">Log in or create account</button>
       </div>
       <div class="stack" id="signedIn" hidden>
         <p>Logged in as <strong id="whoami"></strong></p>
         <button class="btn" id="importBtn" type="button" hidden>Copy runs from this device into my account</button>
         <button class="btn" id="logout" type="button">Log out</button>
       </div>
-      <p class="hero-msg" id="acctMsg" hidden></p>
+      <p class="small" id="acctNote" hidden></p>
     </div>
   </main>
 </div>
 
+<div id="gate" hidden>
+  <div class="gate-brand">
+    <div class="mark">RunThe<b>Streak</b></div>
+    <p class="gate-big">Run.<br>Log it.<br><span>Keep the streak.</span></p>
+    <p class="sub">Track every run, earn badges, climb your rating and pin the places you've run.</p>
+  </div>
+  <div class="gate-form">
+    <h1>Log in</h1>
+    <p class="sub">New here? Type an email and a password, then press Create account.</p>
+    <form class="card" id="authForm" novalidate>
+      <label class="c4">Email <input id="aEmail" type="email" autocomplete="email" placeholder="you@example.com"></label>
+      <label class="c4">Password <input id="aPass" type="password" autocomplete="current-password" placeholder="At least 6 characters"></label>
+      <button class="primary" type="submit">Log in</button>
+      <button class="btn c4" id="signUp" type="button">Create account</button>
+    </form>
+    <p class="hero-msg" id="acctMsg" hidden></p>
+    <button class="linkbtn" id="skipGate" type="button">Continue without an account</button>
+  </div>
+</div>
 <div id="toast" role="status" hidden></div>
 <div id="viewer" hidden>
   <img id="viewerImg" alt="">
@@ -970,14 +1000,21 @@ footer{color:var(--muted);font-size:.82rem}
 
   /* ---------- accounts ---------- */
   function acct(text){ $('acctMsg').textContent = text || ''; $('acctMsg').hidden = !text; }
+  var ready = false, skipped = false;
+  try { skipped = sessionStorage.getItem('runthestreak.skip') === '1'; } catch (e) {}
+  function setSkip(v){ skipped = v; try { sessionStorage.setItem('runthestreak.skip', v ? '1' : '0'); } catch (e) {} showAccount(); }
+  $('skipGate').addEventListener('click', function(){ setSkip(true); });
+  $('openGate').addEventListener('click', function(){ if (!sb) return; acct(''); setSkip(false); });
   function showAccount(){
+    $('gate').hidden = !(sb && ready && !user && !skipped);
+    $('openGate').hidden = !sb;
     $('signedOut').hidden = !!user; $('signedIn').hidden = !user;
     $('guestTip').hidden = !!user || !sb;
     $('whoami').textContent = user ? user.email : '';
     $('saveNote').textContent = user ? 'Your runs and photos are saved to your account.' : 'Your runs and photos are saved in this browser on this device.';
     var has = false; try { var s = JSON.parse(localStorage.getItem(KEY)); has = !!(s && s.runs && s.runs.length); } catch (e) {}
     $('importBtn').hidden = !user || !has;
-    if (!sb) acct('Accounts cannot be reached from here. They work on the real website.');
+    $('acctNote').hidden = !!sb; if (!sb) $('acctNote').textContent = 'Accounts cannot be reached from here. They work on the real website.';
   }
   function loadCloud(){
     return Promise.all([ sb.from('runs').select('*'), sb.from('places').select('*'), sb.from('settings').select('goal').maybeSingle() ]).then(function(res){
@@ -1026,7 +1063,7 @@ footer{color:var(--muted);font-size:.82rem}
       else acct('Almost done. Open the email we sent you and click the link, then log in here.');
     });
   });
-  $('logout').addEventListener('click', function(){ if (sb) sb.auth.signOut(); });
+  $('logout').addEventListener('click', function(){ if (sb){ skipped = false; sb.auth.signOut(); } });
   $('importBtn').addEventListener('click', function(){
     var s = null; try { s = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
     if (!s || !user) return;
@@ -1044,7 +1081,7 @@ footer{color:var(--muted);font-size:.82rem}
       .catch(function(){ toast('Could not copy everything. Try again.'); })
       .then(function(){ btn.disabled = false; btn.textContent = 'Copy runs from this device into my account'; });
   });
-  if (sb) sb.auth.onAuthStateChange(function(ev, session){ setTimeout(function(){ setUser(session ? session.user : null); }, 0); });
+  if (sb) sb.auth.onAuthStateChange(function(ev, session){ setTimeout(function(){ ready = true; setUser(session ? session.user : null); }, 0); });
   showAccount();
 })();
 </script>
