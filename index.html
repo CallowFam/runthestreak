@@ -45,17 +45,22 @@ section{display:flex;flex-direction:column;gap:14px}
 .hero{display:flex;flex-direction:column;align-items:center;gap:20px;text-align:center}
 .home-side{display:flex;flex-direction:column;gap:28px;min-width:0}
 .ring{width:min(78vw,330px);max-width:100%;aspect-ratio:1;border-radius:50%;border:0;padding:14px;cursor:pointer;color:inherit;font:inherit;
-  background:conic-gradient(from 210deg,var(--flame),var(--neon),var(--flame));
+  background:conic-gradient(from 0deg,var(--flame),var(--neon) calc(var(--p,0) * 1%),var(--line) 0);
   box-shadow:0 0 70px color-mix(in srgb,var(--flame) 40%,transparent)}
 .ring-in{width:100%;height:100%;border-radius:50%;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px}
 .ring .num{font-size:clamp(6rem,30vw,10rem);color:var(--neon);padding-right:.06em}
 .ring.long .num{font-size:clamp(4.4rem,22vw,7rem)}
 .ring-label{font-family:var(--display);font-weight:600;font-size:1.25rem;letter-spacing:.14em;text-transform:uppercase}
-.ring.zero{background:var(--line);box-shadow:none}
+.ring.zero{box-shadow:none}
 .ring.zero .num{color:var(--muted)}
 .ring.waiting{box-shadow:none;animation:pulse 2.2s ease-in-out infinite}
 @keyframes pulse{50%{transform:scale(1.025)}}
 .hero-msg{font-size:1.08rem;font-weight:600}
+.goal{width:100%;max-width:440px;gap:10px;text-align:left}
+.goal .goal-line{font-size:1.3rem;font-weight:600;text-align:center}
+.goal .goal-line b{font-size:3.4rem}
+.goal .road{height:34px;border-radius:17px}
+.goal-msg{font-weight:700;color:var(--neon)}
 
 .rating{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap}
 .rating .num{font-size:3.6rem}
@@ -266,6 +271,15 @@ footer{color:var(--muted);font-size:.82rem}
             </span>
           </button>
           <p class="hero-msg" id="streakMsg"></p>
+          <section class="goal" aria-label="Weekly goal">
+            <p class="goal-line"><b id="weekKm">0</b> of <span id="goalKm">15</span> km this week</p>
+            <div class="road" id="road"><div class="fill" id="fill"></div><div class="ticks"></div></div>
+            <div class="row"><span class="goal-msg" id="goalMsg"></span><button class="linkbtn" id="editGoal" type="button">Change goal</button></div>
+            <p class="small">The ring around your streak fills up as you get closer to your weekly goal.</p>
+            <label id="goalEditor" hidden>Weekly goal in km
+              <input id="goalInput" type="number" min="1" max="300" step="1" inputmode="numeric">
+            </label>
+          </section>
         </div>
         <div class="home-side">
           <section aria-label="Rating">
@@ -280,15 +294,6 @@ footer{color:var(--muted);font-size:.82rem}
           <section aria-label="Last 7 days">
             <h2>Last 7 days</h2>
             <div class="week" id="week"></div>
-          </section>
-          <section aria-label="Weekly goal">
-            <div class="row"><h2>This week</h2><button class="linkbtn" id="editGoal" type="button">Change goal</button></div>
-            <p class="goal-line"><b id="weekKm">0</b> of <span id="goalKm">15</span> km. <span id="goalMsg"></span></p>
-            <div class="road" id="road"><div class="fill" id="fill"></div><div class="ticks"></div></div>
-            <div class="road-ends"><span>0 km</span><span id="roadEnd">15 km</span></div>
-            <label id="goalEditor" hidden>Weekly goal in km
-              <input id="goalInput" type="number" min="1" max="300" step="1" inputmode="numeric">
-            </label>
           </section>
         </div>
       </div>
@@ -685,9 +690,9 @@ footer{color:var(--muted);font-size:.82rem}
     var wk = wkRuns.reduce(function(a, r){ return a + r.km; }, 0), left = state.goal - wk;
     $('weekKm').textContent = fmtKm(wk);
     $('goalKm').textContent = state.goal;
-    $('roadEnd').textContent = state.goal + ' km';
     $('goalMsg').textContent = left <= 0 ? 'Goal smashed!' : left <= 1 ? 'Just one more to go!' : fmtKm(left) + ' km to go.';
     $('fill').style.width = Math.min(100, wk/state.goal*100) + '%';
+    $('ring').style.setProperty('--p', Math.min(100, wk/state.goal*100));
     $('road').style.setProperty('--g', Math.min(state.goal, 60));
 
     /* stats */
