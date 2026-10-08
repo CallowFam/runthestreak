@@ -1,0 +1,818 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RunTheStreak</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,600;1,700;1,800&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: side menu plus one page at a time on a laptop; bottom tab bar on a phone. The streak circle stays the loudest thing. Single dark look by choice. */
+:root{
+  color-scheme:dark;
+  --bg:#09090A; --surface:#151517; --raised:#1E1E22; --ink:#F6F3EA; --muted:#A5A29A; --line:#2B2B30;
+  --flame:#FF6A1A; --neon:#E4FF3A; --sky:#BDE8FF; --on-bright:#141003; --sea:#0E1418;
+  --display:"Barlow Condensed","Arial Narrow",Impact,sans-serif;
+  --body:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.45;margin:0;padding-inline:16px;padding-block:24px 56px}
+h1,h2,h3,p{margin:0}
+h1{font-family:var(--display);font-style:italic;font-weight:800;font-size:2.4rem;text-transform:uppercase;line-height:1;text-wrap:balance}
+h2{font-family:var(--display);font-weight:600;font-size:1.05rem;letter-spacing:.1em;text-transform:uppercase;color:var(--sky)}
+.sub{color:var(--muted)}
+.num{font-family:var(--display);font-style:italic;font-weight:800;font-variant-numeric:tabular-nums;line-height:.9}
+.mark{font-family:var(--display);font-style:italic;font-weight:800;font-size:1.6rem}
+.mark b{color:var(--flame);font-weight:800}
+
+/* shell */
+.app{max-width:1120px;margin-inline:auto;display:grid;grid-template-columns:200px minmax(0,1fr);gap:44px}
+.side{position:sticky;top:24px;align-self:start;display:flex;flex-direction:column;gap:22px}
+.rate-mini{display:flex;flex-direction:column;gap:2px;padding:12px 14px;border:1px solid var(--line);border-radius:12px}
+.rate-mini .num{font-size:2rem}
+.rate-mini span:last-child{color:var(--flame);font-weight:700;font-size:.9rem}
+.links{display:flex;flex-direction:column;gap:4px}
+.links a{padding:11px 14px;border-radius:10px;color:var(--muted);text-decoration:none;font-weight:600}
+.links a:hover{color:var(--ink)}
+.links a.on{background:var(--surface);color:var(--neon)}
+.view{display:flex;flex-direction:column;gap:30px;max-width:820px}
+.only-phone{display:none}
+section{display:flex;flex-direction:column;gap:14px}
+.head{display:flex;flex-direction:column;gap:6px}
+
+/* home */
+.home{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:44px;align-items:center}
+.hero{display:flex;flex-direction:column;align-items:center;gap:20px;text-align:center}
+.home-side{display:flex;flex-direction:column;gap:28px;min-width:0}
+.ring{width:min(78vw,330px);max-width:100%;aspect-ratio:1;border-radius:50%;border:0;padding:14px;cursor:pointer;color:inherit;font:inherit;
+  background:conic-gradient(from 210deg,var(--flame),var(--neon),var(--flame));
+  box-shadow:0 0 70px color-mix(in srgb,var(--flame) 40%,transparent)}
+.ring-in{width:100%;height:100%;border-radius:50%;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px}
+.ring .num{font-size:clamp(6rem,30vw,10rem);color:var(--neon);padding-right:.06em}
+.ring.long .num{font-size:clamp(4.4rem,22vw,7rem)}
+.ring-label{font-family:var(--display);font-weight:600;font-size:1.25rem;letter-spacing:.14em;text-transform:uppercase}
+.ring.zero{background:var(--line);box-shadow:none}
+.ring.zero .num{color:var(--muted)}
+.ring.waiting{box-shadow:none;animation:pulse 2.2s ease-in-out infinite}
+@keyframes pulse{50%{transform:scale(1.025)}}
+.hero-msg{font-size:1.08rem;font-weight:600}
+
+.rating{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap}
+.rating .num{font-size:3.6rem}
+.rating-text{display:flex;flex-direction:column;padding-bottom:4px}
+.rating-text strong{color:var(--flame);font-size:1.1rem}
+.rating-text span{color:var(--muted);font-size:.9rem}
+.bar{position:relative;height:12px;border-radius:6px;background:var(--surface);border:1px solid var(--line);overflow:hidden}
+.bar i{position:absolute;inset:0 auto 0 0;background:linear-gradient(to right,var(--flame),var(--neon));width:0}
+.small{font-size:.85rem;color:var(--muted)}
+
+.week{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.day{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:.8rem;color:var(--muted)}
+.dot{width:100%;max-width:48px;aspect-ratio:1;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;font-family:var(--display);font-weight:600;font-size:1rem}
+.day.ran .dot{background:var(--flame);border-color:var(--flame);color:var(--on-bright)}
+.day.today .dot{border-color:var(--ink)}
+.day.today.ran .dot{border-color:var(--flame);outline:2px solid var(--ink);outline-offset:2px}
+.day.today{color:var(--ink);font-weight:700}
+
+.row{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+.goal-line{font-size:1.05rem}
+.goal-line b{font-family:var(--display);font-style:italic;font-weight:800;font-size:1.9rem;color:var(--neon)}
+.road{position:relative;height:26px;border-radius:13px;background:var(--surface);border:1px solid var(--line);overflow:hidden}
+.road .fill{position:absolute;inset:0 auto 0 0;background:linear-gradient(to right,var(--flame),var(--neon));width:0;transition:width .5s ease}
+.road .ticks{position:absolute;inset:0;background-image:linear-gradient(to right,transparent calc(100% - 2px),var(--bg) 0);background-size:calc(100% / var(--g,15)) 100%}
+.road-ends{display:flex;justify-content:space-between;font-size:.8rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.linkbtn{background:none;border:0;padding:4px 0;color:var(--sky);font:inherit;font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.btn{background:var(--raised);border:1px solid var(--line);border-radius:8px;color:var(--ink);font:inherit;font-weight:600;padding:10px 16px;cursor:pointer}
+.btn.on{background:var(--neon);color:var(--on-bright);border-color:var(--neon)}
+
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;border-block:1px solid var(--line);padding-block:18px}
+.stat{display:flex;flex-direction:column;gap:4px;min-width:0}
+.stat .num{font-size:2.1rem}
+.stat span{font-size:.8rem;color:var(--muted)}
+
+/* forms */
+form.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;display:grid;grid-template-columns:repeat(4,1fr);gap:12px;max-width:600px}
+label{display:flex;flex-direction:column;gap:4px;font-size:.82rem;font-weight:600;color:var(--muted);min-width:0}
+input,select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:11px;width:100%;min-width:0}
+.c2{grid-column:span 2}.c4{grid-column:span 4}
+.primary{grid-column:span 4;background:var(--neon);color:var(--on-bright);border:0;border-radius:8px;padding:14px;font-family:var(--display);font-weight:600;font-size:1.3rem;letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
+.err{grid-column:span 4;color:var(--flame);font-size:.9rem;font-weight:600}
+:focus-visible{outline:3px solid var(--sky);outline-offset:3px}
+.notice{background:var(--surface);border:1px dashed var(--muted);border-radius:10px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;font-size:.92rem}
+
+/* missions and badges */
+.missions{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.mission{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 14px;align-items:center}
+.mission strong{font-size:1.02rem}
+.mission .bar{grid-column:1 / -1}
+.pill{font-family:var(--display);font-weight:600;letter-spacing:.08em;text-transform:uppercase;font-size:.95rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.mission.done{border-color:var(--neon)}
+.mission.done .pill{color:var(--neon)}
+.badges{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:22px 12px}
+.badge{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
+.medal{width:78px;aspect-ratio:1;border-radius:50%;display:grid;place-items:center;padding:4px;background:var(--line)}
+.medal span{width:100%;height:100%;border-radius:50%;background:var(--bg);display:grid;place-items:center;font-family:var(--display);font-style:italic;font-weight:800;font-size:1.5rem;color:var(--muted)}
+.badge.got .medal{background:conic-gradient(from 210deg,var(--flame),var(--neon),var(--flame))}
+.badge.got .medal span{color:var(--neon)}
+.badge strong{font-size:.92rem}
+.badge small{color:var(--muted);font-size:.78rem}
+.badge:not(.got) strong{color:var(--muted)}
+
+/* lists */
+ul.list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+ul.list li{display:grid;grid-template-columns:4.8rem minmax(0,1fr) auto;gap:12px;align-items:center;padding-block:12px;border-bottom:1px solid var(--line)}
+ul.list .num{font-size:1.7rem;color:var(--flame)}
+ul.list .num small{font-size:.9rem;font-style:normal;font-weight:600;color:var(--muted)}
+.meta{display:flex;flex-direction:column;min-width:0;font-size:.92rem}
+.meta span{color:var(--muted);overflow-wrap:anywhere}
+.tail{display:flex;align-items:center;gap:8px}
+.del{background:none;border:1px solid var(--line);border-radius:8px;color:var(--muted);font:inherit;font-size:.82rem;padding:6px 10px;cursor:pointer}
+.thumb{width:46px;height:46px;border-radius:8px;border:1px solid var(--line);padding:0;overflow:hidden;cursor:pointer;background:var(--surface);flex:none}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.empty{color:var(--muted);padding-block:10px}
+
+/* map */
+#map{height:min(62vh,520px);min-height:320px;border-radius:14px;border:1px solid var(--line);background:var(--sea);position:relative;z-index:0;isolation:isolate}
+.map-tools{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.pin{background:var(--flame);color:var(--on-bright);border-radius:50%;border:3px solid var(--bg);display:grid;place-items:center;font-family:var(--display);font-weight:600;font-size:1rem;box-shadow:0 0 0 2px var(--flame)}
+.pin.new{background:var(--neon);box-shadow:0 0 0 2px var(--neon)}
+.pop{display:flex;flex-direction:column;gap:8px;min-width:190px;font-family:var(--body);font-size:.9rem}
+.pop strong{font-size:1.05rem}
+.pop .line{color:var(--muted)}
+.pop .shots{display:flex;gap:6px;flex-wrap:wrap}
+/* the parts of the map library's stylesheet this page needs */
+.leaflet-pane,.leaflet-tile,.leaflet-marker-icon,.leaflet-marker-shadow,.leaflet-tile-container,.leaflet-pane>svg,.leaflet-pane>canvas,.leaflet-zoom-box,.leaflet-image-layer,.leaflet-layer{position:absolute;left:0;top:0}
+.leaflet-container{overflow:hidden;-webkit-tap-highlight-color:transparent;font-family:var(--body);outline-offset:1px}
+.leaflet-container.leaflet-touch-zoom{touch-action:pan-x pan-y}
+.leaflet-container.leaflet-touch-drag{touch-action:none;touch-action:pinch-zoom}
+.leaflet-container.leaflet-touch-drag.leaflet-touch-zoom{touch-action:none}
+.leaflet-tile,.leaflet-marker-icon,.leaflet-marker-shadow{user-select:none;-webkit-user-select:none;-webkit-user-drag:none}
+.leaflet-container .leaflet-tile,.leaflet-container .leaflet-marker-pane img,.leaflet-container img.leaflet-image-layer{max-width:none!important;max-height:none!important;width:auto;padding:0}
+.leaflet-tile{visibility:hidden}
+.leaflet-tile-loaded{visibility:inherit}
+.leaflet-zoom-animated{transform-origin:0 0}
+.leaflet-zoom-anim .leaflet-zoom-animated{will-change:transform;transition:transform .25s cubic-bezier(0,0,.25,1)}
+.leaflet-zoom-anim .leaflet-tile,.leaflet-pan-anim .leaflet-tile{transition:none}
+.leaflet-zoom-anim .leaflet-zoom-hide{visibility:hidden}
+.leaflet-pane{z-index:400}.leaflet-tile-pane{z-index:200;filter:invert(1) hue-rotate(180deg) brightness(.9) contrast(.9) saturate(.5)}
+.leaflet-overlay-pane{z-index:400}.leaflet-shadow-pane{z-index:500}.leaflet-marker-pane{z-index:600}.leaflet-tooltip-pane{z-index:650}.leaflet-popup-pane{z-index:700}
+.leaflet-control{position:relative;z-index:800;pointer-events:auto;float:left;clear:both}
+.leaflet-top,.leaflet-bottom{position:absolute;z-index:1000;pointer-events:none}
+.leaflet-top{top:0}.leaflet-right{right:0}.leaflet-bottom{bottom:0}.leaflet-left{left:0}
+.leaflet-right .leaflet-control{float:right}
+.leaflet-top .leaflet-control{margin-top:10px}.leaflet-left .leaflet-control{margin-left:10px}
+.leaflet-interactive{cursor:pointer}.leaflet-grab{cursor:grab}.leaflet-dragging .leaflet-grab{cursor:grabbing}
+.leaflet-marker-icon,.leaflet-marker-shadow,.leaflet-image-layer,.leaflet-pane>svg path,.leaflet-tile-container{pointer-events:none}
+.leaflet-marker-icon.leaflet-interactive,.leaflet-pane>svg path.leaflet-interactive{pointer-events:auto}
+.leaflet-bar{border-radius:8px;overflow:hidden;border:1px solid var(--line)}
+.leaflet-bar a{display:block;width:34px;height:34px;line-height:34px;text-align:center;text-decoration:none;font-size:20px;font-weight:700;background:var(--surface);color:var(--ink);border-bottom:1px solid var(--line)}
+.leaflet-bar a:last-child{border-bottom:0}
+.leaflet-bar a.leaflet-disabled{color:var(--muted);cursor:default}
+.leaflet-control-attribution{font-size:11px;padding:2px 6px;background:var(--surface);color:var(--muted)}
+.leaflet-control-attribution a{color:var(--sky)}
+.leaflet-attribution-flag{display:none!important}
+.leaflet-popup{position:absolute;text-align:center;margin-bottom:22px}
+.leaflet-fade-anim .leaflet-popup{opacity:0;transition:opacity .2s linear}
+.leaflet-fade-anim .leaflet-map-pane .leaflet-popup{opacity:1}
+.leaflet-popup-content-wrapper{padding:1px;text-align:left;border-radius:12px;background:var(--raised);color:var(--ink);border:1px solid var(--line)}
+.leaflet-popup-content{margin:14px 26px 14px 16px;line-height:1.35;min-height:1px}
+.leaflet-popup-tip-container{width:40px;height:20px;position:absolute;left:50%;margin-top:-1px;margin-left:-20px;overflow:hidden;pointer-events:none}
+.leaflet-popup-tip{width:17px;height:17px;padding:1px;margin:-10px auto 0;pointer-events:auto;transform:rotate(45deg);background:var(--raised);border:1px solid var(--line)}
+.leaflet-popup-close-button{position:absolute;top:2px;right:2px;border:0;text-align:center;width:28px;height:28px;font:18px/28px var(--body);text-decoration:none;background:transparent;color:var(--muted)}
+
+/* photo viewer */
+#viewer{position:fixed;inset:0;z-index:100;background:color-mix(in srgb,var(--bg) 92%,transparent);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:20px}
+#viewer img{max-width:100%;max-height:74vh;border-radius:12px}
+#viewer p{text-align:center}
+footer{color:var(--muted);font-size:.82rem}
+
+@media (max-width:859px){
+  body{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))}
+  .app{display:block}
+  .side{position:fixed;inset:auto 0 0 0;top:auto;z-index:50;background:var(--surface);border-top:1px solid var(--line);padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px))}
+  .side .mark,.rate-mini{display:none}
+  .links{flex-direction:row;gap:2px}
+  .links a{flex:1;text-align:center;padding:11px 2px;font-size:.8rem}
+  .only-phone{display:block;text-align:center}
+  .home{grid-template-columns:minmax(0,1fr);gap:30px}
+  .hero{min-height:min(66vh,560px);justify-content:center}
+}
+@media (max-width:440px){
+  .stats{grid-template-columns:repeat(2,1fr)}
+  ul.list li{grid-template-columns:4rem minmax(0,1fr) auto;gap:8px}
+  h1{font-size:2rem}
+}
+@media (prefers-reduced-motion:reduce){ .road .fill{transition:none} .ring.waiting{animation:none} }
+</style>
+
+</head>
+<body>
+<div class="app">
+  <nav class="side" aria-label="Menu">
+    <div class="mark">RunThe<b>Streak</b></div>
+    <div class="rate-mini"><span class="num" id="navRating">400</span><span id="navTitle">Rookie</span></div>
+    <div class="links">
+      <a href="#streak" data-v="streak">Streak</a>
+      <a href="#log" data-v="log">Log run</a>
+      <a href="#missions" data-v="missions">Missions</a>
+      <a href="#map" data-v="map">Map</a>
+      <a href="#runs" data-v="runs">Runs</a>
+    </div>
+  </nav>
+
+  <main>
+    <!-- STREAK -->
+    <div class="view" id="v-streak">
+      <div class="mark only-phone">RunThe<b>Streak</b></div>
+      <div class="notice" id="exampleNotice" hidden>
+        <span>These are example runs and places so you can see how it works. Log your first run and they disappear.</span>
+        <button class="linkbtn" id="clearExamples" type="button">Clear examples</button>
+      </div>
+      <div class="home">
+        <div class="hero">
+          <button class="ring" id="ring" type="button">
+            <span class="ring-in">
+              <span class="num" id="streakNum">0</span>
+              <span class="ring-label" id="streakLabel">day streak</span>
+            </span>
+          </button>
+          <p class="hero-msg" id="streakMsg"></p>
+        </div>
+        <div class="home-side">
+          <section aria-label="Rating">
+            <h2>Your rating</h2>
+            <div class="rating">
+              <div class="num" id="ratingNum">400</div>
+              <div class="rating-text"><strong id="ratingTitle">Rookie</strong><span id="ratingDelta"></span></div>
+            </div>
+            <div class="bar"><i id="ratingBar"></i></div>
+            <p class="small" id="ratingNext"></p>
+          </section>
+          <section aria-label="Last 7 days">
+            <h2>Last 7 days</h2>
+            <div class="week" id="week"></div>
+          </section>
+          <section aria-label="Weekly goal">
+            <div class="row"><h2>This week</h2><button class="linkbtn" id="editGoal" type="button">Change goal</button></div>
+            <p class="goal-line"><b id="weekKm">0</b> of <span id="goalKm">15</span> km. <span id="goalMsg"></span></p>
+            <div class="road" id="road"><div class="fill" id="fill"></div><div class="ticks"></div></div>
+            <div class="road-ends"><span>0 km</span><span id="roadEnd">15 km</span></div>
+            <label id="goalEditor" hidden>Weekly goal in km
+              <input id="goalInput" type="number" min="1" max="300" step="1" inputmode="numeric">
+            </label>
+          </section>
+        </div>
+      </div>
+      <div class="stats" aria-label="All-time stats">
+        <div class="stat"><div class="num" id="sKm">0</div><span>total km</span></div>
+        <div class="stat"><div class="num" id="sRuns">0</div><span>runs</span></div>
+        <div class="stat"><div class="num" id="sLongest">0</div><span>longest streak</span></div>
+        <div class="stat"><div class="num" id="sPace">--</div><span>best pace /km</span></div>
+      </div>
+      <section aria-label="How the rating works">
+        <h2>How your rating works</h2>
+        <p class="sub">Everyone starts at 400. Every run adds 10 points, plus 2 for each km (up to 20). Beat your usual pace for 10 more, or set a new fastest 5K for 25 more. Each day without a run takes 4 points off, up to 28 for one break.</p>
+      </section>
+    </div>
+
+    <!-- LOG -->
+    <div class="view" id="v-log" hidden>
+      <div class="head"><h1>Log a run</h1><p class="sub">Add the place and a photo if you like. They show up on your map.</p></div>
+      <form class="card" id="runForm" novalidate>
+        <label class="c2">Date <input id="fDate" type="date" required></label>
+        <label class="c2">Distance (km) <input id="fDist" type="number" min="0.1" max="500" step="0.01" inputmode="decimal" placeholder="5" required></label>
+        <label class="c2">Minutes <input id="fMin" type="number" min="0" max="2000" step="1" inputmode="numeric" placeholder="27"></label>
+        <label class="c2">Seconds <input id="fSec" type="number" min="0" max="59" step="1" inputmode="numeric" placeholder="30"></label>
+        <label class="c4">Place <select id="fPlace"></select></label>
+        <p class="small c4">Somewhere new? Add it on the <a class="linkbtn" href="#map" data-v="map">Map page</a> first.</p>
+        <label class="c4">Photo (optional) <input id="fPhoto" type="file" accept="image/*"></label>
+        <label class="c4">Note (optional) <input id="fNote" type="text" maxlength="60" placeholder="Who did you run with? How did it feel?"></label>
+        <div class="err" id="formErr" hidden></div>
+        <button class="primary" type="submit">Log run</button>
+      </form>
+    </div>
+
+    <!-- MISSIONS -->
+    <div class="view" id="v-missions" hidden>
+      <div class="head"><h1>Missions</h1><p class="sub" id="missionSub">New missions every Monday.</p></div>
+      <ul class="missions" id="missionList"></ul>
+      <section aria-label="Badges">
+        <div class="row"><h2>Badges</h2><span class="small" id="badgeCount"></span></div>
+        <div class="badges" id="badgeGrid"></div>
+      </section>
+    </div>
+
+    <!-- MAP -->
+    <div class="view" id="v-map" hidden>
+      <div class="head"><h1>Where you've run</h1><p class="sub">Tap a pin to see your runs and photos there.</p></div>
+      <div id="map"></div>
+      <p class="small" id="mapNote" hidden></p>
+      <div class="map-tools">
+        <button class="btn" id="addPlace" type="button">Add a place</button>
+        <button class="linkbtn" id="hereBtn" type="button">Use where I am now</button>
+      </div>
+      <form class="card" id="placeForm" hidden novalidate>
+        <label class="c4">Name this place <input id="pName" type="text" maxlength="40" placeholder="Kite Beach"></label>
+        <div class="err" id="placeErr" hidden></div>
+        <button class="primary c2" type="submit">Save place</button>
+        <button class="btn c2" id="placeCancel" type="button">Cancel</button>
+      </form>
+      <section aria-label="Your places">
+        <h2>Your places</h2>
+        <ul class="list" id="placeList"></ul>
+      </section>
+    </div>
+
+    <!-- RUNS -->
+    <div class="view" id="v-runs" hidden>
+      <div class="head"><h1>Your runs</h1></div>
+      <section aria-label="Fastest 5Ks">
+        <h2>Fastest 5Ks</h2>
+        <ul class="list" id="bestList"></ul>
+      </section>
+      <section aria-label="Best 5K at each place">
+        <h2>Best 5K at each place</h2>
+        <ul class="list" id="placeBest"></ul>
+      </section>
+      <section aria-label="All runs">
+        <h2>All runs</h2>
+        <ul class="list" id="runList"></ul>
+      </section>
+      <footer>Your runs and photos are saved in this browser on this device.</footer>
+    </div>
+  </main>
+</div>
+
+<div id="viewer" hidden>
+  <img id="viewerImg" alt="">
+  <p id="viewerCap"></p>
+  <button class="btn" id="viewerClose" type="button">Close</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+(function(){
+  var KEY = 'runthestreak.v1';
+  var VIEWS = ['streak','log','missions','map','runs'];
+  var $ = function(id){ return document.getElementById(id); };
+  function el(tag, cls, text){ var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+
+  /* ---------- dates and formatting ---------- */
+  function ymd(d){ return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+  function daysAgo(n){ var d = new Date(); d.setHours(12,0,0,0); d.setDate(d.getDate()-n); return d; }
+  function parse(s){ var p = s.split('-'); return new Date(+p[0], +p[1]-1, +p[2], 12); }
+  function shift(s, n){ var d = parse(s); d.setDate(d.getDate()+n); return ymd(d); }
+  function dayDiff(a, b){ return Math.round((parse(b) - parse(a)) / 864e5); }
+  function fmtKm(n){ return (Math.round(n*100)/100).toString(); }
+  function fmtTime(sec){ var m = Math.floor(sec/60), s = Math.round(sec%60); if (s === 60){ m++; s = 0; } return m + ':' + String(s).padStart(2,'0'); }
+  function niceDate(s, long){ return parse(s).toLocaleDateString(undefined, long ? {weekday:'short', day:'numeric', month:'short', year:'numeric'} : {weekday:'short', day:'numeric', month:'short'}); }
+  function weekStart(){ var d = daysAgo(0); d.setDate(d.getDate() - (d.getDay()+6)%7); return ymd(d); }
+  function weekOf(s){ var d = parse(s); d.setDate(d.getDate() - (d.getDay()+6)%7); return ymd(d); }
+
+  /* ---------- state ---------- */
+  function examples(){
+    var places = [
+      {id:'exp1', name:'Kite Beach, Dubai', lat:25.1640, lng:55.2005},
+      {id:'exp2', name:'Ras Al Khaimah Corniche', lat:25.7895, lng:55.9432},
+      {id:'exp3', name:'Canggu, Bali', lat:-8.6478, lng:115.1385},
+      {id:'exp4', name:'Derby, England', lat:52.9225, lng:-1.4746}
+    ];
+    var e = [[1,5,1530,'Beach 5K','exp1'],[2,3.2,1120,'Easy run','exp1'],[3,6,2040,'Long one, felt good','exp2'],[5,5,1575,'Windy','exp2'],[6,4,1380,'Before school',''],[58,5,1620,'Holiday run','exp3'],[110,5,1700,'Cold!','exp4']];
+    var runs = e.map(function(r,i){ return {id:'ex'+i, date:ymd(daysAgo(r[0])), km:r[1], sec:r[2], note:r[3], place:r[4]}; });
+    return { runs: runs, places: places };
+  }
+  var ex = examples();
+  var state = { runs: ex.runs, places: ex.places, goal: 15, examples: true };
+  try {
+    var saved = JSON.parse(localStorage.getItem(KEY));
+    if (saved && Array.isArray(saved.runs)) state = { runs: saved.runs, places: Array.isArray(saved.places) ? saved.places : [], goal: +saved.goal || 15, examples: false };
+  } catch (e) {}
+  function save(){ try { localStorage.setItem(KEY, JSON.stringify({runs: state.runs, places: state.places, goal: state.goal})); } catch (e) {} }
+  function endExamples(keepPlace){
+    if (!state.examples) return;
+    state.runs = [];
+    state.places = state.places.filter(function(p){ return p.id === keepPlace || p.id.indexOf('exp') !== 0; });
+    state.examples = false;
+  }
+  function placeById(id){ for (var i = 0; i < state.places.length; i++) if (state.places[i].id === id) return state.places[i]; return null; }
+  function placeName(id){ var p = placeById(id); return p ? p.name : ''; }
+
+  /* ---------- photos (kept in the browser's database) ---------- */
+  var photos = {}, dbp = null;
+  function db(){
+    if (dbp) return dbp;
+    dbp = new Promise(function(res, rej){
+      try {
+        var r = indexedDB.open('runthestreak', 1);
+        r.onupgradeneeded = function(){ r.result.createObjectStore('photos'); };
+        r.onsuccess = function(){ res(r.result); };
+        r.onerror = function(){ rej(r.error); };
+      } catch (e) { rej(e); }
+    });
+    return dbp;
+  }
+  function putPhoto(id, data){
+    photos[id] = data;
+    return db().then(function(d){ d.transaction('photos','readwrite').objectStore('photos').put(data, id); }).catch(function(){});
+  }
+  function dropPhoto(id){
+    delete photos[id];
+    db().then(function(d){ d.transaction('photos','readwrite').objectStore('photos').delete(id); }).catch(function(){});
+  }
+  function loadPhotos(){
+    return db().then(function(d){ return new Promise(function(res){
+      var c = d.transaction('photos').objectStore('photos').openCursor();
+      c.onsuccess = function(){ var k = c.result; if (k){ photos[k.key] = k.value; k.continue(); } else res(); };
+      c.onerror = function(){ res(); };
+    }); }).catch(function(){});
+  }
+  function shrink(file){
+    return new Promise(function(res, rej){
+      var fr = new FileReader();
+      fr.onerror = rej;
+      fr.onload = function(){
+        var img = new Image();
+        img.onerror = rej;
+        img.onload = function(){
+          var max = 1000, s = Math.min(1, max / Math.max(img.width, img.height));
+          var c = document.createElement('canvas'); c.width = Math.round(img.width*s); c.height = Math.round(img.height*s);
+          c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+          res(c.toDataURL('image/jpeg', 0.82));
+        };
+        img.src = fr.result;
+      };
+      fr.readAsDataURL(file);
+    });
+  }
+  function thumb(run){
+    if (!photos[run.id]) return null;
+    var b = el('button', 'thumb'); b.type = 'button'; b.setAttribute('aria-label', 'Open photo from ' + run.date);
+    var i = el('img'); i.src = photos[run.id]; i.alt = ''; b.appendChild(i);
+    b.addEventListener('click', function(){
+      $('viewerImg').src = photos[run.id];
+      $('viewerCap').textContent = niceDate(run.date, true) + ' · ' + fmtKm(run.km) + ' km' + (placeName(run.place) ? ' · ' + placeName(run.place) : '');
+      $('viewer').hidden = false;
+    });
+    return b;
+  }
+  $('viewerClose').addEventListener('click', function(){ $('viewer').hidden = true; });
+  $('viewer').addEventListener('click', function(e){ if (e.target === this) this.hidden = true; });
+
+  /* ---------- the numbers ---------- */
+  function byDate(a, b){ return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; }
+  function streaks(){
+    var days = {}; state.runs.forEach(function(r){ days[r.date] = true; });
+    var today = ymd(daysAgo(0)), yest = ymd(daysAgo(1));
+    var cur = 0, d = days[today] ? today : (days[yest] ? yest : null);
+    while (d && days[d]){ cur++; d = shift(d,-1); }
+    var longest = 0, keys = Object.keys(days).sort(), run = 0, prev = null;
+    keys.forEach(function(k){ run = (prev && shift(prev,1) === k) ? run+1 : 1; if (run > longest) longest = run; prev = k; });
+    return { cur: cur, longest: longest, ranToday: !!days[today] };
+  }
+  var TITLES = [[0,'Rookie'],[600,'Jogger'],[900,'Runner'],[1200,'Racer'],[1500,'Flyer'],[1800,'Elite'],[2200,'Legend']];
+  function rating(){
+    var runs = state.runs.slice().sort(byDate), r = 400, paces = [], best5 = null, last = 0, prev = null, beat = {};
+    runs.forEach(function(x){
+      if (prev){ var gap = dayDiff(prev, x.date) - 1; if (gap > 0) r = Math.max(100, r - Math.min(28, 4*gap)); }
+      var d = 10 + Math.min(20, Math.round(x.km*2));
+      if (x.sec){
+        var p = x.sec / x.km;
+        if (paces.length){ var recent = paces.slice(-5), avg = recent.reduce(function(a,b){ return a+b; }, 0) / recent.length; if (p < avg){ d += 10; beat[x.id] = true; } }
+        if (x.km >= 5){ var t5 = p*5; if (best5 === null || t5 < best5){ if (best5 !== null) d += 25; best5 = t5; } }
+        paces.push(p);
+      }
+      r += d; last = d; prev = x.date;
+    });
+    if (prev){ var g = dayDiff(prev, ymd(daysAgo(0))) - 1; if (g > 0) r = Math.max(100, r - Math.min(28, 4*g)); }
+    var ti = 0; TITLES.forEach(function(t, i){ if (r >= t[0]) ti = i; });
+    return { r: r, last: last, beat: beat, title: TITLES[ti][1], floor: TITLES[ti][0], next: TITLES[ti+1] || null, best5: best5 };
+  }
+  function fiveKs(){
+    return state.runs.filter(function(r){ return r.sec && r.km >= 5 && r.km <= 5.5; })
+      .sort(function(a,b){ return a.sec/a.km - b.sec/b.km; });
+  }
+  function farApart(){
+    var p = state.places, R = 6371, rad = Math.PI/180;
+    for (var i = 0; i < p.length; i++) for (var j = i+1; j < p.length; j++){
+      var a = Math.sin((p[j].lat-p[i].lat)*rad/2), b = Math.sin((p[j].lng-p[i].lng)*rad/2);
+      var h = a*a + Math.cos(p[i].lat*rad)*Math.cos(p[j].lat*rad)*b*b;
+      if (2*R*Math.asin(Math.sqrt(h)) > 1000) return true;
+    }
+    return false;
+  }
+
+  /* ---------- drawing the pages ---------- */
+  function runRow(r, opts){
+    var li = el('li');
+    var km = el('div', 'num', (opts && opts.lead) || fmtKm(r.km) + ' ');
+    if (!(opts && opts.lead)) km.appendChild(el('small', '', 'km'));
+    var meta = el('div', 'meta');
+    meta.appendChild(el('strong', '', (opts && opts.title) || niceDate(r.date)));
+    var bits = [];
+    if (opts && opts.title) bits.push(niceDate(r.date));
+    if (r.sec && !(opts && opts.lead)) bits.push(fmtTime(r.sec) + ' (' + fmtTime(r.sec/r.km) + ' /km)');
+    if (opts && opts.lead) bits.push(fmtKm(r.km) + ' km at ' + fmtTime(r.sec/r.km) + ' /km');
+    if (placeName(r.place) && !(opts && opts.hidePlace)) bits.push(placeName(r.place));
+    if (r.note) bits.push(r.note);
+    meta.appendChild(el('span', '', bits.join(' · ')));
+    var tail = el('div', 'tail'), t = thumb(r); if (t) tail.appendChild(t);
+    if (opts && opts.del){
+      var del = el('button', 'del', 'Delete'); del.type = 'button'; del.setAttribute('aria-label', 'Delete run on ' + r.date);
+      del.addEventListener('click', function(){
+        state.runs = state.runs.filter(function(x){ return x.id !== r.id; });
+        dropPhoto(r.id);
+        if (!state.examples) save();
+        render();
+      });
+      tail.appendChild(del);
+    }
+    li.appendChild(km); li.appendChild(meta); li.appendChild(tail);
+    return li;
+  }
+  function emptyRow(list, text){ var li = el('li', 'empty', text); li.style.display = 'block'; list.appendChild(li); }
+
+  function render(){
+    var st = streaks(), rt = rating(), today = ymd(daysAgo(0)), ws = weekStart();
+    $('exampleNotice').hidden = !state.examples;
+
+    /* streak circle */
+    $('streakNum').textContent = st.cur;
+    $('streakLabel').textContent = st.cur === 1 ? 'day streak' : 'days in a row';
+    var ring = $('ring');
+    ring.className = 'ring' + (st.cur === 0 ? ' zero' : st.ranToday ? '' : ' waiting') + (st.cur >= 100 ? ' long' : '');
+    ring.setAttribute('aria-label', st.cur + ' day streak. ' + (st.ranToday ? 'Log another run' : 'Log today\'s run'));
+    $('streakMsg').textContent = st.cur === 0 ? 'Tap the circle and log a run to start your streak.'
+      : st.ranToday ? 'Today is done. See you tomorrow.' : 'Tap the circle to log today\'s run and keep it alive.';
+
+    /* rating */
+    $('ratingNum').textContent = rt.r; $('navRating').textContent = rt.r;
+    $('ratingTitle').textContent = rt.title; $('navTitle').textContent = rt.title;
+    $('ratingDelta').textContent = state.runs.length ? '+' + rt.last + ' from your last run' : 'Log a run to start climbing';
+    if (rt.next){
+      $('ratingBar').style.width = Math.max(3, Math.min(100, (rt.r - rt.floor) / (rt.next[0] - rt.floor) * 100)) + '%';
+      $('ratingNext').textContent = (rt.next[0] - rt.r) + ' points to ' + rt.next[1];
+    } else { $('ratingBar').style.width = '100%'; $('ratingNext').textContent = 'Top title reached.'; }
+
+    /* last 7 days */
+    var kmByDay = {}; state.runs.forEach(function(r){ kmByDay[r.date] = (kmByDay[r.date]||0) + r.km; });
+    var week = $('week'); week.textContent = '';
+    for (var i = 6; i >= 0; i--){
+      var d = daysAgo(i), key = ymd(d);
+      var day = el('div', 'day' + (kmByDay[key] ? ' ran' : '') + (i === 0 ? ' today' : ''));
+      day.appendChild(el('div', 'dot', kmByDay[key] ? fmtKm(Math.round(kmByDay[key]*10)/10) : ''));
+      day.appendChild(el('div', '', i === 0 ? 'Today' : d.toLocaleDateString(undefined,{weekday:'short'})));
+      week.appendChild(day);
+    }
+
+    /* weekly goal */
+    var wkRuns = state.runs.filter(function(r){ return r.date >= ws; });
+    var wk = wkRuns.reduce(function(a, r){ return a + r.km; }, 0), left = state.goal - wk;
+    $('weekKm').textContent = fmtKm(wk);
+    $('goalKm').textContent = state.goal;
+    $('roadEnd').textContent = state.goal + ' km';
+    $('goalMsg').textContent = left <= 0 ? 'Goal smashed!' : left <= 1 ? 'Just one more to go!' : fmtKm(left) + ' km to go.';
+    $('fill').style.width = Math.min(100, wk/state.goal*100) + '%';
+    $('road').style.setProperty('--g', Math.min(state.goal, 60));
+
+    /* stats */
+    var total = 0, best = null;
+    state.runs.forEach(function(r){ total += r.km; if (r.sec && r.km >= 1){ var p = r.sec/r.km; if (best === null || p < best) best = p; } });
+    $('sKm').textContent = fmtKm(Math.round(total*10)/10);
+    $('sRuns').textContent = state.runs.length;
+    $('sLongest').textContent = st.longest;
+    $('sPace').textContent = best === null ? '--' : fmtTime(best);
+
+    /* missions */
+    var wkDays = {}; wkRuns.forEach(function(r){ wkDays[r.date] = true; });
+    var missions = [
+      ['Run today', st.ranToday ? 1 : 0, 1, ''],
+      ['Run on 3 different days this week', Math.min(3, Object.keys(wkDays).length), 3, ''],
+      ['Reach your weekly goal', Math.min(state.goal, Math.round(wk*10)/10), state.goal, ' km'],
+      ['Run 5 km or more in one go', wkRuns.some(function(r){ return r.km >= 5; }) ? 1 : 0, 1, ''],
+      ['Beat your usual pace', wkRuns.some(function(r){ return rt.beat[r.id]; }) ? 1 : 0, 1, ''],
+      ['Add a photo to a run', wkRuns.some(function(r){ return photos[r.id]; }) ? 1 : 0, 1, '']
+    ];
+    var ml = $('missionList'), doneCount = 0; ml.textContent = '';
+    missions.forEach(function(m){
+      var done = m[1] >= m[2]; if (done) doneCount++;
+      var li = el('li', 'mission' + (done ? ' done' : ''));
+      li.appendChild(el('strong', '', m[0]));
+      li.appendChild(el('span', 'pill', done ? 'Done' : m[1] + ' / ' + m[2] + m[3]));
+      var bar = el('div', 'bar'), fill = el('i'); fill.style.width = Math.min(100, m[1]/m[2]*100) + '%'; bar.appendChild(fill);
+      li.appendChild(bar); ml.appendChild(li);
+    });
+    $('missionSub').textContent = doneCount + ' of ' + missions.length + ' done. New missions every Monday.';
+
+    /* badges */
+    var maxKm = state.runs.reduce(function(a, r){ return Math.max(a, r.km); }, 0);
+    var weeks = {}; state.runs.forEach(function(r){ var w = weekOf(r.date); weeks[w] = (weeks[w]||0) + r.km; });
+    var hitGoal = Object.keys(weeks).some(function(w){ return weeks[w] >= state.goal; });
+    var usedPlaces = {}; state.runs.forEach(function(r){ if (placeById(r.place)) usedPlaces[r.place] = true; });
+    var b5 = rt.best5;
+    var badges = [
+      ['1st','First Run','Log your first run', state.runs.length >= 1],
+      ['3','Hat-Trick','3 days in a row', st.longest >= 3],
+      ['7','Full Week','7 days in a row', st.longest >= 7],
+      ['14','Fortnight','14 days in a row', st.longest >= 14],
+      ['30','Unstoppable','30 days in a row', st.longest >= 30],
+      ['5K','Five Alive','Run 5 km in one go', maxKm >= 5],
+      ['10K','Double Digits','Run 10 km in one go', maxKm >= 10],
+      ['50','Fifty Club','50 km in total', total >= 50],
+      ['100','Century','100 km in total', total >= 100],
+      ['GO','Goal Smasher','Hit your weekly goal', hitGoal],
+      ['30:','Sub-30','5K in under 30:00', b5 !== null && b5 < 1800],
+      ['25:','Sub-25','5K in under 25:00', b5 !== null && b5 < 1500],
+      ['x3','Explorer','Run in 3 different places', Object.keys(usedPlaces).length >= 3],
+      ['GLB','World Runner','Places over 1,000 km apart', farApart()],
+      ['PIC','Snapper','Add a photo to a run', state.runs.some(function(r){ return photos[r.id]; })]
+    ];
+    var bg = $('badgeGrid'), got = 0; bg.textContent = '';
+    badges.forEach(function(b){
+      if (b[3]) got++;
+      var d = el('div', 'badge' + (b[3] ? ' got' : ''));
+      var m = el('div', 'medal'); m.appendChild(el('span', '', b[0])); d.appendChild(m);
+      d.appendChild(el('strong', '', b[1])); d.appendChild(el('small', '', b[2]));
+      bg.appendChild(d);
+    });
+    $('badgeCount').textContent = got + ' of ' + badges.length + ' earned';
+
+    /* runs page */
+    var fk = fiveKs(), bl = $('bestList'); bl.textContent = '';
+    if (!fk.length) emptyRow(bl, 'No timed 5Ks yet. Log a run of 5 km with your time.');
+    fk.slice(0, 5).forEach(function(r){ bl.appendChild(runRow(r, { lead: fmtTime(r.sec/r.km*5) })); });
+    var pb = $('placeBest'), seen = {}, any = false; pb.textContent = '';
+    fk.forEach(function(r){
+      if (!placeById(r.place) || seen[r.place]) return; seen[r.place] = true; any = true;
+      pb.appendChild(runRow(r, { lead: fmtTime(r.sec/r.km*5), title: placeName(r.place), hidePlace: true }));
+    });
+    if (!any) emptyRow(pb, 'Pick a place when you log a 5K and your best time there shows up here.');
+    var list = $('runList'); list.textContent = '';
+    var sorted = state.runs.slice().sort(byDate).reverse();
+    if (!sorted.length) emptyRow(list, 'No runs yet. Log your first one.');
+    sorted.forEach(function(r){ list.appendChild(runRow(r, { del: true })); });
+
+    /* place picker and place list */
+    var sel = $('fPlace'), keep = sel.value; sel.textContent = '';
+    var o0 = el('option', '', 'No place'); o0.value = ''; sel.appendChild(o0);
+    state.places.forEach(function(p){ var o = el('option', '', p.name); o.value = p.id; sel.appendChild(o); });
+    if (placeById(keep)) sel.value = keep;
+    var pl = $('placeList'); pl.textContent = '';
+    if (!state.places.length) emptyRow(pl, 'No places yet. Press "Add a place", then tap the map where you ran.');
+    state.places.forEach(function(p){
+      var runs = state.runs.filter(function(r){ return r.place === p.id; });
+      var km = runs.reduce(function(a, r){ return a + r.km; }, 0);
+      var li = el('li'); li.appendChild(el('div', 'num', String(runs.length)));
+      var meta = el('div', 'meta'); meta.appendChild(el('strong', '', p.name));
+      meta.appendChild(el('span', '', (runs.length === 1 ? '1 run' : runs.length + ' runs') + ' · ' + fmtKm(Math.round(km*10)/10) + ' km'));
+      var tail = el('div', 'tail');
+      var show = el('button', 'del', 'Show'); show.type = 'button';
+      show.addEventListener('click', function(){ if (map){ map.setView([p.lat, p.lng], 13); if (pins[p.id]) pins[p.id].openPopup(); $('map').scrollIntoView({block:'center'}); } });
+      var del = el('button', 'del', 'Delete'); del.type = 'button'; del.setAttribute('aria-label', 'Delete place ' + p.name);
+      del.addEventListener('click', function(){
+        state.places = state.places.filter(function(x){ return x.id !== p.id; });
+        if (!state.examples) save();
+        render();
+      });
+      tail.appendChild(show); tail.appendChild(del);
+      li.appendChild(meta); li.insertBefore(li.firstChild, meta); li.appendChild(tail); pl.appendChild(li);
+    });
+    drawPins();
+  }
+
+  /* ---------- map ---------- */
+  var map = null, pinLayer = null, pins = {}, addMode = false, pending = null, pendingMarker = null;
+  function note(text){ $('mapNote').textContent = text; $('mapNote').hidden = !text; }
+  function initMap(){
+    if (map) return;
+    if (!window.L){ note('The map could not load. Check your internet connection and reload the page.'); return; }
+    map = L.map('map', { worldCopyJump: true, minZoom: 1 }).setView([25.2, 55.27], 2);
+    var ok = false;
+    var tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' });
+    tiles.on('tileload', function(){ ok = true; });
+    tiles.on('tileerror', function(){ if (!ok && map.hasLayer(tiles)){ map.removeLayer(tiles); note('The map background could not load here, but your pins still work. It loads on the real website.'); } });
+    tiles.addTo(map);
+    pinLayer = L.layerGroup().addTo(map);
+    map.on('click', function(e){ if (addMode) setPending(e.latlng.lat, e.latlng.lng); });
+    drawPins(); fit();
+  }
+  function fit(){
+    if (!map || !state.places.length) return;
+    map.fitBounds(L.latLngBounds(state.places.map(function(p){ return [p.lat, p.lng]; })).pad(0.3), { maxZoom: 12 });
+  }
+  function drawPins(){
+    if (!map) return;
+    pinLayer.clearLayers(); pins = {};
+    state.places.forEach(function(p){
+      var runs = state.runs.filter(function(r){ return r.place === p.id; }).sort(byDate).reverse();
+      var icon = L.divIcon({ className: 'pin', html: String(runs.length), iconSize: [34, 34], iconAnchor: [17, 17], popupAnchor: [0, -14] });
+      var box = el('div', 'pop'); box.appendChild(el('strong', '', p.name));
+      var km = runs.reduce(function(a, r){ return a + r.km; }, 0);
+      box.appendChild(el('span', 'line', (runs.length === 1 ? '1 run' : runs.length + ' runs') + ' · ' + fmtKm(Math.round(km*10)/10) + ' km'));
+      runs.slice(0, 5).forEach(function(r){
+        box.appendChild(el('span', '', niceDate(r.date, true) + ' · ' + fmtKm(r.km) + ' km' + (r.sec ? ' in ' + fmtTime(r.sec) : '')));
+      });
+      var shots = el('div', 'shots'), n = 0;
+      runs.forEach(function(r){ var t = thumb(r); if (t && n < 8){ shots.appendChild(t); n++; } });
+      if (n) box.appendChild(shots);
+      pins[p.id] = L.marker([p.lat, p.lng], { icon: icon, title: p.name }).bindPopup(box).addTo(pinLayer);
+    });
+  }
+  function setPending(lat, lng){
+    pending = { lat: lat, lng: lng };
+    if (pendingMarker) map.removeLayer(pendingMarker);
+    pendingMarker = L.marker([lat, lng], { icon: L.divIcon({ className: 'pin new', html: '+', iconSize: [34, 34], iconAnchor: [17, 17] }) }).addTo(map);
+    $('placeForm').hidden = false; $('pName').focus();
+  }
+  function stopAdding(){
+    addMode = false; pending = null;
+    if (pendingMarker && map){ map.removeLayer(pendingMarker); } pendingMarker = null;
+    $('addPlace').classList.remove('on'); $('addPlace').textContent = 'Add a place';
+    $('placeForm').hidden = true; $('pName').value = ''; $('placeErr').hidden = true;
+  }
+  $('addPlace').addEventListener('click', function(){
+    if (addMode){ stopAdding(); note(''); return; }
+    if (!map){ initMap(); if (!map) return; }
+    addMode = true; this.classList.add('on'); this.textContent = 'Now tap the map';
+  });
+  $('hereBtn').addEventListener('click', function(){
+    if (!map){ initMap(); if (!map) return; }
+    if (!navigator.geolocation){ note('This browser cannot share your location. Tap the map instead.'); return; }
+    navigator.geolocation.getCurrentPosition(function(pos){
+      addMode = true; $('addPlace').classList.add('on'); $('addPlace').textContent = 'Now tap the map';
+      map.setView([pos.coords.latitude, pos.coords.longitude], 14);
+      setPending(pos.coords.latitude, pos.coords.longitude);
+    }, function(){ note('Could not get your location. Press "Add a place" and tap the map instead.'); });
+  });
+  $('placeCancel').addEventListener('click', stopAdding);
+  $('placeForm').addEventListener('submit', function(ev){
+    ev.preventDefault();
+    var name = $('pName').value.trim(), err = $('placeErr');
+    var msg = !pending ? 'Tap the map to choose the spot first.' : !name ? 'Give the place a name.' : '';
+    err.hidden = !msg; err.textContent = msg;
+    if (msg) return;
+    endExamples();
+    var p = { id: 'p' + Date.now(), name: name, lat: Math.round(pending.lat*1e5)/1e5, lng: Math.round(pending.lng*1e5)/1e5 };
+    state.places.push(p); save(); stopAdding(); render();
+    $('fPlace').value = p.id;
+  });
+
+  /* ---------- menu ---------- */
+  var cur = '';
+  function go(v, fromHash){
+    if (VIEWS.indexOf(v) < 0) v = 'streak';
+    if (v === cur) return;
+    cur = v;
+    VIEWS.forEach(function(n){ $('v-' + n).hidden = n !== v; });
+    Array.prototype.forEach.call(document.querySelectorAll('.links a'), function(a){ a.classList.toggle('on', a.getAttribute('data-v') === v); });
+    if (!fromHash){ try { history.replaceState(null, '', '#' + v); } catch (e) {} }
+    window.scrollTo(0, 0);
+    if (v === 'map'){ initMap(); setTimeout(function(){ if (map){ map.invalidateSize(); fit(); } }, 60); }
+  }
+  document.addEventListener('click', function(e){
+    var a = e.target.closest ? e.target.closest('a[data-v]') : null;
+    if (a){ e.preventDefault(); go(a.getAttribute('data-v')); }
+  });
+  window.addEventListener('hashchange', function(){ go(location.hash.slice(1), true); });
+  $('ring').addEventListener('click', function(){ go('log'); $('fDist').focus(); });
+
+  /* ---------- forms ---------- */
+  $('fDate').value = ymd(daysAgo(0));
+  $('fDate').max = ymd(daysAgo(0));
+  $('runForm').addEventListener('submit', function(ev){
+    ev.preventDefault();
+    var err = $('formErr'), date = $('fDate').value, km = parseFloat($('fDist').value);
+    var min = parseInt($('fMin').value,10) || 0, sec = parseInt($('fSec').value,10) || 0;
+    var msg = '';
+    if (!date) msg = 'Pick the date of your run.';
+    else if (date > ymd(daysAgo(0))) msg = 'That date is in the future. Pick today or earlier.';
+    else if (!(km > 0)) msg = 'Enter how far you ran in km, like 5 or 3.2.';
+    else if (km > 500) msg = 'That distance looks too big. Check the number.';
+    else if (sec > 59) msg = 'Seconds should be between 0 and 59.';
+    err.hidden = !msg; err.textContent = msg;
+    if (msg) return;
+    var place = $('fPlace').value, file = $('fPhoto').files && $('fPhoto').files[0];
+    endExamples(place);
+    var run = { id: 'r' + Date.now(), date: date, km: Math.round(km*100)/100, sec: min*60 + sec, note: $('fNote').value.trim(), place: placeById(place) ? place : '' };
+    state.runs.push(run); save();
+    $('fDist').value = ''; $('fMin').value = ''; $('fSec').value = ''; $('fNote').value = ''; $('fPhoto').value = '';
+    var finish = function(){ render(); go('streak'); };
+    if (file){ shrink(file).then(function(data){ return putPhoto(run.id, data); }).catch(function(){}).then(finish); }
+    else finish();
+  });
+  $('clearExamples').addEventListener('click', function(){ endExamples(); save(); render(); });
+  $('editGoal').addEventListener('click', function(){
+    var ed = $('goalEditor'); ed.hidden = !ed.hidden;
+    if (!ed.hidden){ $('goalInput').value = state.goal; $('goalInput').focus(); }
+  });
+  $('goalInput').addEventListener('change', function(){
+    var g = Math.round(parseFloat(this.value));
+    if (g >= 1 && g <= 300){ state.goal = g; if (!state.examples) save(); render(); }
+  });
+
+  render();
+  go(location.hash.slice(1) || 'streak', true);
+  loadPhotos().then(render);
+})();
+</script>
+</body>
+</html>
