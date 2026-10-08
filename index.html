@@ -212,6 +212,8 @@ footer{color:var(--muted);font-size:.82rem}
   .gate-brand .sub{display:none}
   .gate-form{padding:24px 20px 40px;justify-content:flex-start}
 }
+.btn{text-decoration:none;display:inline-block}
+#reportAddr{color:var(--ink);user-select:all}
 .report.small{color:var(--muted);font-weight:500}
 .check{flex-direction:row;align-items:center;gap:8px;font-size:.92rem;color:var(--ink);cursor:pointer}
 .check input{width:18px;height:18px;padding:0;flex:none;accent-color:var(--neon)}
@@ -402,7 +404,11 @@ footer{color:var(--muted);font-size:.82rem}
       <section aria-label="Help">
         <h2>Something not working?</h2>
         <p class="sub">Send an email saying what went wrong and what you were doing.</p>
-        <p><a class="linkbtn report" href="mailto:therileybcallow@gmail.com?subject=RunTheStreak%20problem&amp;body=What%20went%20wrong%3F%0A%0AWhat%20were%20you%20doing%20when%20it%20happened%3F%0A">Report a problem by email</a></p>
+        <div class="map-tools">
+          <a class="btn on" href="https://mail.google.com/mail/?view=cm&amp;fs=1&amp;to=therileybcallow%40gmail.com&amp;su=RunTheStreak%20problem&amp;body=What%20went%20wrong%3F%0A%0AWhat%20were%20you%20doing%20when%20it%20happened%3F%0A" target="_blank" rel="noopener">Write the email in Gmail</a>
+          <a class="linkbtn" href="mailto:therileybcallow@gmail.com?subject=RunTheStreak%20problem">Use my email app instead</a>
+        </div>
+        <p class="small">Or copy the address: <strong id="reportAddr">therileybcallow@gmail.com</strong> <button class="del" id="copyAddr" type="button">Copy</button></p>
       </section>
     </div>
   </main>
@@ -426,7 +432,7 @@ footer{color:var(--muted);font-size:.82rem}
     <button class="linkbtn" id="switchMode" type="button">New here? Sign up</button>
     <p class="hero-msg" id="acctMsg" hidden></p>
     <button class="linkbtn" id="skipGate" type="button">Continue without an account</button>
-    <a class="linkbtn report small" href="mailto:therileybcallow@gmail.com?subject=RunTheStreak%20problem&amp;body=What%20went%20wrong%3F%0A%0AWhat%20were%20you%20doing%20when%20it%20happened%3F%0A">Report a problem by email</a>
+    <a class="linkbtn report small" href="https://mail.google.com/mail/?view=cm&amp;fs=1&amp;to=therileybcallow%40gmail.com&amp;su=RunTheStreak%20problem&amp;body=What%20went%20wrong%3F%0A%0AWhat%20were%20you%20doing%20when%20it%20happened%3F%0A" target="_blank" rel="noopener">Report a problem by email</a>
   </div>
 </div>
 <div id="toast" role="status" hidden></div>
@@ -1106,6 +1112,11 @@ footer{color:var(--muted);font-size:.82rem}
     }).then(function(){ toast('Copied to your account.'); showAccount(); })
       .catch(function(){ toast('Could not copy everything. Try again.'); })
       .then(function(){ btn.disabled = false; btn.textContent = 'Copy runs from this device into my account'; });
+  });
+  $('copyAddr').addEventListener('click', function(){
+    var a = $('reportAddr').textContent;
+    try { navigator.clipboard.writeText(a).then(function(){ toast('Address copied.'); }, function(){ toast('Could not copy. The address is ' + a); }); }
+    catch (e) { toast('Could not copy. The address is ' + a); }
   });
   if (sb) sb.auth.onAuthStateChange(function(ev, session){ setTimeout(function(){ ready = true; setUser(session ? session.user : null); }, 0); });
   showAccount();
