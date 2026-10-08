@@ -207,6 +207,9 @@ footer{color:var(--muted);font-size:.82rem}
   .gate-brand .sub{display:none}
   .gate-form{padding:24px 20px 40px;justify-content:flex-start}
 }
+.report.small{color:var(--muted);font-weight:500}
+.check{flex-direction:row;align-items:center;gap:8px;font-size:.92rem;color:var(--ink);cursor:pointer}
+.check input{width:18px;height:18px;padding:0;flex:none;accent-color:var(--neon)}
 #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:90;background:var(--raised);border:1px solid var(--line);border-radius:10px;padding:10px 16px;font-weight:600;max-width:calc(100% - 32px)}
 .stack{display:flex;flex-direction:column;gap:14px;align-items:flex-start;max-width:600px}
 
@@ -391,6 +394,11 @@ footer{color:var(--muted);font-size:.82rem}
         <button class="btn" id="logout" type="button">Log out</button>
       </div>
       <p class="small" id="acctNote" hidden></p>
+      <section aria-label="Help">
+        <h2>Something not working?</h2>
+        <p class="sub">Send an email saying what went wrong and what you were doing.</p>
+        <p><a class="linkbtn report" href="mailto:therileybcallow@gmail.com?subject=RunTheStreak%20problem&amp;body=What%20went%20wrong%3F%0A%0AWhat%20were%20you%20doing%20when%20it%20happened%3F%0A">Report a problem by email</a></p>
+      </section>
     </div>
   </main>
 </div>
@@ -402,16 +410,18 @@ footer{color:var(--muted);font-size:.82rem}
     <p class="sub">Track every run, earn badges, climb your rating and pin the places you've run.</p>
   </div>
   <div class="gate-form">
-    <h1>Log in</h1>
-    <p class="sub">New here? Type an email and a password, then press Create account.</p>
+    <h1 id="gateTitle">Log in</h1>
+    <p class="sub" id="gateSub">Welcome back. Log in to see your streak.</p>
     <form class="card" id="authForm" novalidate>
       <label class="c4">Email <input id="aEmail" type="email" autocomplete="email" placeholder="you@example.com"></label>
       <label class="c4">Password <input id="aPass" type="password" autocomplete="current-password" placeholder="At least 6 characters"></label>
-      <button class="primary" type="submit">Log in</button>
-      <button class="btn c4" id="signUp" type="button">Create account</button>
+      <label class="check c4"><input id="showPass" type="checkbox"> Show password</label>
+      <button class="primary" id="authGo" type="submit">Log in</button>
     </form>
+    <button class="linkbtn" id="switchMode" type="button">New here? Sign up</button>
     <p class="hero-msg" id="acctMsg" hidden></p>
     <button class="linkbtn" id="skipGate" type="button">Continue without an account</button>
+    <a class="linkbtn report small" href="mailto:therileybcallow@gmail.com?subject=RunTheStreak%20problem&amp;body=What%20went%20wrong%3F%0A%0AWhat%20were%20you%20doing%20when%20it%20happened%3F%0A">Report a problem by email</a>
   </div>
 </div>
 <div id="toast" role="status" hidden></div>
@@ -1044,24 +1054,35 @@ footer{color:var(--muted);font-size:.82rem}
     if (!e || pw.length < 6){ acct('Enter your email and a password of at least 6 characters.'); return null; }
     return { email: e, password: pw };
   }
+  var mode = 'login';
+  function setMode(m){
+    mode = m; var up = m === 'signup';
+    $('gateTitle').textContent = up ? 'Sign up' : 'Log in';
+    $('gateSub').textContent = up ? 'Create your account to save your runs on every device.' : 'Welcome back. Log in to see your streak.';
+    $('authGo').textContent = up ? 'Sign up' : 'Log in';
+    $('switchMode').textContent = up ? 'Already have an account? Log in' : 'New here? Sign up';
+    $('aPass').setAttribute('autocomplete', up ? 'new-password' : 'current-password');
+    acct('');
+  }
+  $('switchMode').addEventListener('click', function(){ setMode(mode === 'login' ? 'signup' : 'login'); });
+  $('showPass').addEventListener('change', function(){ $('aPass').type = this.checked ? 'text' : 'password'; });
   $('authForm').addEventListener('submit', function(ev){
     ev.preventDefault(); if (!sb) return;
     var c = creds(); if (!c) return;
-    acct('Logging in...');
-    sb.auth.signInWithPassword(c).then(function(res){
-      if (res.error){ acct(res.error.message); return; }
-      acct(''); $('aPass').value = ''; go('streak');
-    });
-  });
-  $('signUp').addEventListener('click', function(){
-    if (!sb) return;
-    var c = creds(); if (!c) return;
-    acct('Creating your account...');
-    sb.auth.signUp({ email: c.email, password: c.password, options: { emailRedirectTo: location.origin } }).then(function(res){
-      if (res.error){ acct(res.error.message); return; }
-      if (res.data && res.data.session){ acct(''); $('aPass').value = ''; go('streak'); }
-      else acct('Almost done. Open the email we sent you and click the link, then log in here.');
-    });
+    if (mode === 'signup'){
+      acct('Creating your account...');
+      sb.auth.signUp({ email: c.email, password: c.password, options: { emailRedirectTo: location.origin } }).then(function(res){
+        if (res.error){ acct(res.error.message); return; }
+        if (res.data && res.data.session){ acct(''); $('aPass').value = ''; go('streak'); }
+        else { setMode('login'); acct('Almost done. Open the email we sent you and click the link, then log in here.'); }
+      });
+    } else {
+      acct('Logging in...');
+      sb.auth.signInWithPassword(c).then(function(res){
+        if (res.error){ acct(res.error.message); return; }
+        acct(''); $('aPass').value = ''; go('streak');
+      });
+    }
   });
   $('logout').addEventListener('click', function(){ if (sb){ skipped = false; sb.auth.signOut(); } });
   $('importBtn').addEventListener('click', function(){
